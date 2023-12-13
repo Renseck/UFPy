@@ -8,47 +8,26 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from PychamAnalysis import PychamSimulation
+from SalsaAnalysis import SalsaSimulation
 
-GITHUB_PATH = os.path.join(os.curdir, "..\\..") # Two levels up, back to the general GitHub directory
-PYCHAM_PATH = os.path.join(GITHUB_PATH, "PyCHAM\\PyCHAM\\output\\ex_chem_scheme")
+pycham1 = PychamSimulation("Example_Run_Output_2")
+salsa = SalsaSimulation()
 
-class Simulation:
-    def __init__(self, simname):
-        self.simname = simname
-        filedir = os.listdir(os.path.join(PYCHAM_PATH, self.simname))
-        self.output_files = {file: os.path.join(os.path.join(PYCHAM_PATH, self.simname), file) for file in filedir if not file.endswith("npy")}
-        self.data = {}
-        self.read_output_files_to_dataframes()
-        
-    def read_output_files_to_dataframes(self):
-        for file_name, file_path in self.output_files.items():
-            if file_name not in ["inputs", "model_and_component_constants", "simulation_self.pickle"]:
-                print(file_name)
-                df = pd.read_csv(file_path, delimiter = ",", comment = "#")
-                self.data[file_name] = df
-            
-    def get_data(self, file_name):
-        return self.data.get(file_name)
-    
-    def plot(self, file_name):
-        self.get_data(file_name).plot()
-    
-    def __str__(self):
-        return f"{self.simname}\n{list(self.data.keys())}"
+pycham1_bins = pycham1.get_data("size_bin_bounds")
+pycham1_nc = pycham1.get_data("particle_number_concentration_dry").set_axis(pycham1_bins.iloc[-1][1:], axis = 1)
 
-sim1 = Simulation("Example_Run_Output_2")
+salsa_bins = salsa.get_data("radii")
+salsa_nc = salsa.get_data("output")
 
-sim1_bins = sim1.get_data("size_bin_bounds")
-sim1_nc = sim1.get_data("particle_number_concentration_dry").set_axis(sim1_bins.iloc[-1][1:], axis = 1)
-
-pm01 = sim1_nc[sim1_nc.columns[sim1_nc.columns<=0.1]]
-pm25 = sim1_nc[sim1_nc.columns[sim1_nc.columns<=2.5]]
+pm01 = pycham1_nc[pycham1_nc.columns[pycham1_nc.columns<=0.1]]
+pm25 = pycham1_nc[pycham1_nc.columns[pycham1_nc.columns<=2.5]]
 pm01_total = pm01.sum(axis = 1)
 pm25_total = pm25.sum(axis = 1)
 
 
 plt.figure(figsize = (10,6))
-plt.imshow(sim1_nc.values.T, cmap = "viridis", aspect = "auto", interpolation = "none")
+plt.imshow(pycham1_nc.values.T, cmap = "viridis", aspect = "auto", interpolation = "none")
 plt.gca().invert_yaxis()
 plt.colorbar()
 plt.show()
