@@ -17,6 +17,8 @@ class SalsaSimulation:
                              "radii": os.path.join(SALSA_PATH, "radii2.dat")}
         self.data = {}
         self.read_output_files_to_dataframes()
+        self.output = self.get_data("output")
+        self.radii = self.get_data("radii")
         
     def read_output_files_to_dataframes(self):
         for file_name, file_path in self.output_files.items():
