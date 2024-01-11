@@ -44,9 +44,6 @@ def plot_size_dist(
 
             r_row = rdry.iloc[n][bins]
             N_row = num.iloc[n][bins]
-            print(n)
-            print(r_row)
-            print(N_row)
 
             ax.plot(r_row, N_row, label=n)
         ax.set_title(f"Population {pop}")
@@ -103,11 +100,9 @@ def plot_size_dist_evolution(
         ## combining bin boundaries (omitting double values)
         rbounds = [bounds for k,bounds in sorted(bin_boundaries.items()) if pop in k]
         rbounds = np.concatenate([rb[:-1] for rb in rbounds[:-1]]+[rbounds[-1]])
-        print(rbounds.shape)
 
         ## time bounds
         tbounds = np.arange(num.shape[0]+1)
-        print(tbounds.shape)
 
         ## generating meshgrid
         t,r = np.meshgrid(tbounds,rbounds)
