@@ -3,13 +3,74 @@
 # atmospheric chemistry and cloud formation. There is no GitHub repository or documentation for this distribution.
 # Investigation of the source code (driver.f90) seems to indicate that number concentration are
 # currently written to output in num.dat.
+# 
+# The functions plot_size_dist, define_bin_boundaries, plot_size_dist_evolution were part of the original script, and
+# only slightly modified by me (Rens van Eck, BSc). The other functions were written by me
 # =============================================================================
 
+import os
+import subprocess
+import shutil
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import colors as mc
 import pandas as pd
 import cmocean as co
+import netCDF4 as nc
+import xarray as xr
+
+BASE_FOLDER = "../../HAM_box_OpenIFS"
+INPUT_FOLDER = os.path.join(BASE_FOLDER, "input")
+OUTPUT_FOLDER = os.path.join(BASE_FOLDER, "data")
+
+def read_input(filename):
+    if filename in ["orig", "original"]:
+        dataset = nc.Dataset(os.path.join(INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"))
+
+    elif filename in ["kappa"]:
+        dataset = nc.Dataset(os.path.join(BASE_FOLDER, "lut_kappa.nc"))
+        
+    # This bit is for safekeeping the original input files, just incase that ends up being necessary
+    # I'm just going to put a copy of it in the /data/backup folder, idc if it's bad practice
+    if not os.path.exists(os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc")):
+        shutil.copy(os.path.join(INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"), os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc"))
+    if not os.path.exists(os.path.join("../data/Backup", "lut_kappa.nc")):
+        shutil.copy(os.path.join(BASE_FOLDER, "lut_kappa.nc"), os.path.join("../data/Backup", "lut_kappa.nc"))
+
+    return dataset
+
+def edit_input(original_dataset, new_filename):
+    # This will probably also require us to delete the original input file, but I'm foregoing that for the moment.
+    edited_dataset = nc.Dataset(os.path.join(INPUT_FOLDER, new_filename), "w", format = "NETCDF4")
+    
+    # Copy dimensions from the original to the edited dataset
+    for dim_name, dim_obj in original_dataset.dimensions.items():
+        edited_dataset.createDimension(dim_name, len(dim_obj))
+
+    # Copy variables and their attributes from the original to the edited dataset
+    for var_name, var_obj in original_dataset.variables.items():
+        edited_var = edited_dataset.createVariable(var_name, var_obj.dtype, var_obj.dimensions)
+        edited_var[:] = var_obj[:]  # Copy variable values
+        for attr_name in var_obj.ncattrs():
+            edited_var.setncattr(attr_name, var_obj.getncattr(attr_name))  # Copy variable attributes
+
+    # Modify the values of a variable in the edited dataset
+    # This bit is going to include some Latin Hypercube Sampling (LHS) method to explore parameter space,
+    # Which will involve rewriting every variable one-by-one. 
+    edited_dataset.variables['your_variable'][:] = np.ones_like(edited_dataset.variables['your_variable'][:]) * 42
+
+    return edited_dataset
+
+def run_linux_command(command, verbose = True):
+    # This is currently only setup to work with running either the "salsa_box" or the "ham_box" scripts.
+    try: 
+        command = f"cd ../.. && cd HAM_box_OpenIFS && ./{command}"
+        subprocess.run(["wsl", "bash", "-c", command], check = True)
+        if verbose:
+            print(f"{command} complete!")
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing Linux command: {e}")
+        
 
 def plot_size_dist(
     rdry, num, rows = [0], populations = ['a', 'b'],
@@ -53,6 +114,8 @@ def plot_size_dist(
         ax.set_ylim(bottom=ymin, top=ymax)
         if pop == "b":
             ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
+            
+    plt.savefig(os.path.join("../data", "size_distribution.png"), bbox_inches = 'tight', pad_inches = 0)
     plt.show()
 
 
@@ -112,17 +175,19 @@ def plot_size_dist_evolution(
 
         ax.set_title(f"Population {pop}")
         ax.set_yscale('log')
+        ax.set_ylabel("Diameter (m)")
         ax.set_xlim(left=xmin, right=xmax)
         ax.set_ylim(bottom=ymin, top=ymax)
         
     fig.colorbar(cls, ax=axes.ravel().tolist())
-    plt.savefig('size_distribution_LES_box.png', bbox_inches = 'tight', pad_inches = 0)
+    plt.savefig(os.path.join("../data", "size_distribution_LES_box.png"), bbox_inches = 'tight', pad_inches = 0)
+    ax.set_xlabel("Time")
     # plt.close()
     plt.show()
 
         
 if __name__ == '__main__':
-    num  = pd.read_csv('../../HAM_box_OpenIFS/data/num.dat',  sep=r"\s+")
-    rdry = pd.read_csv('../../HAM_box_OpenIFS/data/rdry.dat', sep=r"\s+")
+    num  = pd.read_csv(os.path.join(OUTPUT_FOLDER, "num.dat"),  sep=r"\s+")
+    rdry = pd.read_csv(os.path.join(OUTPUT_FOLDER, "rdry.dat"), sep=r"\s+")
     plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1)
     plot_size_dist_evolution(num, vmin=1)
