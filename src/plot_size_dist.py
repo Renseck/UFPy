@@ -41,6 +41,7 @@ def read_input(filename):
 
 def edit_input(original_dataset, new_filename):
     # This will probably also require us to delete the original input file, but I'm foregoing that for the moment.
+    
     edited_dataset = nc.Dataset(os.path.join(INPUT_FOLDER, new_filename), "w", format = "NETCDF4")
     
     # Copy dimensions from the original to the edited dataset
@@ -63,6 +64,7 @@ def edit_input(original_dataset, new_filename):
 
 def run_linux_command(command, verbose = True):
     # This is currently only setup to work with running either the "salsa_box" or the "ham_box" scripts.
+    # I also have no clue what the difference between these two is.
     try: 
         command = f"cd ../.. && cd HAM_box_OpenIFS && ./{command}"
         subprocess.run(["wsl", "bash", "-c", command], check = True)
