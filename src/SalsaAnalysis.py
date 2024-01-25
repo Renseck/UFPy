@@ -13,6 +13,7 @@ Created on Wed Dec 13 09:08:27 2023
 # =============================================================================
 
 import os
+import subprocess
 import pandas as pd 
 
 GITHUB_PATH = os.path.join(os.curdir, "..\\..") # Two levels up, back to the general GitHub directory
@@ -44,3 +45,16 @@ class SalsaSimulation:
     
     def __str__(self):
         return f"{self.simname}\n{list(self.data.keys())}"
+    
+
+def run_salsa(verbose = True):
+    # This is currently only setup to work with running the "salsa"
+    try: 
+        command = "cd ../.. && cd SALSA-standalone && ./salsa"
+        result = subprocess.run(["wsl", "bash", "-c", command], check = True,
+                                stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        if verbose:
+            print(f"{result.stderr.decode('ascii').strip()}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing Linux command: {e}")
+    

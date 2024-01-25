@@ -44,3 +44,6 @@ plt.xlabel("Time (hr)")
 plt.ylabel("Concentration (# cm$^{-3}$)")
 plt.legend()
 plt.show()
+
+
+salsa_nc[np.linspace(1, len(salsa_nc.columns)-1, len(salsa_nc.columns)-1, dtype = int)].plot()

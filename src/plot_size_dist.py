@@ -21,7 +21,7 @@ import xarray as xr
 
 BASE_FOLDER = "../../HAM_box_OpenIFS"
 INPUT_FOLDER = os.path.join(BASE_FOLDER, "input")
-OUTPUT_FOLDER = os.path.join(BASE_FOLDER, "data")
+DATA_FOLDER = os.path.join(BASE_FOLDER, "data")
 
 def read_input(filename):
     if filename in ["orig", "original"]:
@@ -117,7 +117,7 @@ def plot_size_dist(
         if pop == "b":
             ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
             
-    plt.savefig(os.path.join("../data", "size_distribution.png"), bbox_inches = 'tight', pad_inches = 0)
+    plt.savefig(os.path.join("../results", "size_distribution.png"), bbox_inches = 'tight', pad_inches = 0)
     plt.show()
 
 
@@ -182,14 +182,14 @@ def plot_size_dist_evolution(
         ax.set_ylim(bottom=ymin, top=ymax)
         
     fig.colorbar(cls, ax=axes.ravel().tolist())
-    plt.savefig(os.path.join("../data", "size_distribution_LES_box.png"), bbox_inches = 'tight', pad_inches = 0)
+    plt.savefig(os.path.join("../results", "size_distribution_LES_box.png"), bbox_inches = 'tight', pad_inches = 0)
     ax.set_xlabel("Time")
     # plt.close()
     plt.show()
 
         
 if __name__ == '__main__':
-    num  = pd.read_csv(os.path.join(OUTPUT_FOLDER, "num.dat"),  sep=r"\s+")
-    rdry = pd.read_csv(os.path.join(OUTPUT_FOLDER, "rdry.dat"), sep=r"\s+")
+    num  = pd.read_csv(os.path.join(DATA_FOLDER, "num.dat"),  sep=r"\s+")
+    rdry = pd.read_csv(os.path.join(DATA_FOLDER, "rdry.dat"), sep=r"\s+")
     plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1)
     plot_size_dist_evolution(num, vmin=1)
