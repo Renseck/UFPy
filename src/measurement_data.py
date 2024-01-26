@@ -16,3 +16,5 @@ RESULTS_FOLDER = "../results"
 cabauw_df = pd.read_csv(os.path.join(MEASUREMENTS_FOLDER, "Cabauw_UFP_Hourly_Avgs.csv"), skiprows = 6, header = 1)
 erzeij_df = pd.read_csv(os.path.join(MEASUREMENTS_FOLDER, "Erzeijstraat_UFP_Hourly_Avgs.csv"), skiprows = 6, header = 1)
 grift_df = pd.read_csv(os.path.join(MEASUREMENTS_FOLDER, "Griftpark_UFP_Hourly_Avgs.csv"), skiprows = 6, header = 1)
+
+erzeij_df["Checked UFP concentrations [#/cm3]"].plot()
