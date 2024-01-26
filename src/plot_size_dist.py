@@ -79,6 +79,7 @@ def plot_size_dist(
     rdry, num, rows = [0], populations = ['a', 'b'],
     xmin = None, xmax = None,
     ymin = None, ymax = None,
+    name_addition = ""
     ):
 
     ## make sure that row_nr is a list-like object
@@ -118,7 +119,8 @@ def plot_size_dist(
         if pop == "b":
             ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
             
-    plt.savefig(os.path.join("../results", "size_distribution.png"), bbox_inches = 'tight', pad_inches = 0)
+    figure_name = "size_distribution{addition}.png".format(addition = f"_{name_addition}" if name_addition != "" else "")
+    plt.savefig(os.path.join("../results", figure_name), bbox_inches = 'tight', pad_inches = 0)
     plt.show()
 
 
@@ -141,6 +143,7 @@ def plot_size_dist_evolution(
     xmin = None, xmax = None,
     ymin = None, ymax = None,
     vmin = None, vmax = None,
+    name_addition = ""
     ):
 
     bin_boundaries = define_bin_boundaries()
@@ -183,7 +186,8 @@ def plot_size_dist_evolution(
         ax.set_ylim(bottom=ymin, top=ymax)
         
     fig.colorbar(cls, ax=axes.ravel().tolist())
-    plt.savefig(os.path.join("../results", "size_distribution_LES_box.png"), bbox_inches = 'tight', pad_inches = 0)
+    figure_name = "size_distribution_LES_box{addition}.png".format(addition = f"_{name_addition}" if name_addition != "" else "")
+    plt.savefig(os.path.join("../results", figure_name), bbox_inches = 'tight', pad_inches = 0)
     ax.set_xlabel("Time")
     # plt.close()
     plt.show()
