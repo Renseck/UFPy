@@ -62,11 +62,14 @@ def edit_input(original_dataset, new_filename):
 
     return edited_dataset
 
-def run_linux_command(command, verbose = True):
-    # This is currently only setup to work with running either the "salsa_box" or the "ham_box" scripts.
-    # I also have no clue what the difference between these two is.
+def run_linux_command(command = "./ham_box", recompile = True, verbose = True):
+    # This is currently only setup to run commands in the HAM_box_OpenIFS directory.
+    if recompile:
+        command = f"cd ../.. && cd HAM_box_OpenIFS && make dest_dir=/src/*/ && {command}"
+    else:
+        command = f"cd ../.. && cd HAM_box_OpenIFS && {command}"
+        
     try: 
-        command = f"cd ../.. && cd HAM_box_OpenIFS && ./{command}"
         result = subprocess.run(["wsl", "bash", "-c", command], check = True,
                                 stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if verbose:
@@ -196,5 +199,5 @@ def plot_size_dist_evolution(
 if __name__ == '__main__':
     num  = pd.read_csv(os.path.join(DATA_FOLDER, "num.dat"),  sep=r"\s+")
     rdry = pd.read_csv(os.path.join(DATA_FOLDER, "rdry.dat"), sep=r"\s+")
-    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1)
-    plot_size_dist_evolution(num, vmin=1)
+    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, name_addition = "")
+    plot_size_dist_evolution(num, vmin=1, name_addition = "")
