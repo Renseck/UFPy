@@ -67,9 +67,10 @@ def run_linux_command(command, verbose = True):
     # I also have no clue what the difference between these two is.
     try: 
         command = f"cd ../.. && cd HAM_box_OpenIFS && ./{command}"
-        subprocess.run(["wsl", "bash", "-c", command], check = True)
+        result = subprocess.run(["wsl", "bash", "-c", command], check = True,
+                                stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if verbose:
-            print(f"{command} complete!")
+           print(f"{result.stderr.decode('ascii').strip()}")
     except subprocess.CalledProcessError as e:
         print(f"Error executing Linux command: {e}")
         
