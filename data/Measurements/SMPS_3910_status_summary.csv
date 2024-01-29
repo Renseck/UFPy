@@ -1,0 +1,17 @@
+Status,avg_conc,counts,perc
+Filling reservoir;,7585.531272126839,5708,10.0050831711977
+Filling reservoir; Low pulse;,8924.715525353926,779,1.3654449527615642
+Filling reservoir; Temp out of range;,NA,1,0.0017528176543794149
+Inlet flow error;,128.6520715367146,1321,2.315472121435207
+Inlet flow error; CPC flow error; Charger flow error;,5595.383928571428,7,0.012269723580655905
+Inlet flow error; Charger error; Filling reservoir; CPC flow error; Charger flow error; Sheath flow error;,NA,1,0.0017528176543794149
+Inlet flow error; Charger flow error;,2536.658270316819,4703,8.243501428546388
+Inlet flow error; Filling reservoir;,133.96631263157894,95,0.1665176771660444
+Inlet flow error; Filling reservoir; Charger flow error;,2577.848368555241,353,0.6187446319959334
+Inlet flow error; Filling reservoir; Low pulse;,9660.0675125,16,0.028045082470070638
+Inlet flow error; Filling reservoir; Low pulse; Charger flow error;,10396.869471428572,7,0.012269723580655905
+Inlet flow error; Low pulse;,9438.469103797468,79,0.13847259469597378
+Inlet flow error; Low pulse; Charger flow error;,9958.82577878788,33,0.05784298259452069
+Low pulse;,6882.266822516329,5818,10.197893113179436
+No errors,6802.0983416815325,38129,66.83318434383271
+Sheath flow error;,9200.7344,1,0.0017528176543794149

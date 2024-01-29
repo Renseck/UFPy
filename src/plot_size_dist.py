@@ -17,7 +17,6 @@ from matplotlib import colors as mc
 import pandas as pd
 import cmocean as co
 import netCDF4 as nc
-import xarray as xr
 
 BASE_FOLDER = "../../HAM_box_OpenIFS"
 INPUT_FOLDER = os.path.join(BASE_FOLDER, "input")

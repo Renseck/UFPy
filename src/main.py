@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import PychamAnalysis as pyan
 import SalsaAnalysis as saan
+import measurement_data as md
 
 pycham0 = pyan.PychamSimulation("Example_Run_Output_2")
 pycham1 = pyan.PychamSimulation("Slow_Chemical_Reactions")
