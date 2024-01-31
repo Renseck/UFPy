@@ -62,7 +62,7 @@ def edit_input(original_dataset, new_filename):
 
     return edited_dataset
 
-def run_linux_command(command = "./ham_box", recompile = True, verbose = True):
+def run_model(command = "./ham_box", recompile = True, verbose = True):
     # This is currently only setup to run commands in the HAM_box_OpenIFS directory.
     if recompile:
         command = f"cd ../.. && cd HAM_box_OpenIFS && make dest_dir=/src/*/ && {command}"
@@ -168,7 +168,7 @@ def define_bin_boundaries(populations = ['1a', '2a', '2b']):
 
 
 def plot_size_dist_evolution(
-    num, populations = ['a', 'b'],
+    rdry, num, populations = ['a', 'b'],
     xmin = None, xmax = None,
     ymin = None, ymax = None,
     vmin = None, vmax = None,
@@ -225,5 +225,10 @@ def plot_size_dist_evolution(
 if __name__ == '__main__':
     num  = pd.read_csv(os.path.join(DATA_FOLDER, "num.dat"),  sep=r"\s+")
     rdry = pd.read_csv(os.path.join(DATA_FOLDER, "rdry.dat"), sep=r"\s+")
-    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, name_addition = "")
-    plot_size_dist_evolution(num, vmin=1, name_addition = "")
+    # rdry has radii which are off by 2 orders of magnitudes, because SALSA works 
+    # with cm, "for some reason". Divide everything by 100 to make it right.
+    rdry = rdry/100
+    
+    experiment_name = "NUCL3"
+    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, name_addition = experiment_name)
+    plot_size_dist_evolution(rdry, num, vmin=1, name_addition = experiment_name)
