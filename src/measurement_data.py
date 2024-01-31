@@ -166,8 +166,8 @@ if __name__ == "__main__":
 
     plt.figure(figsize = (10,6))
     plt.title("Correlations")
-    corr = merged_df.filter(regex = "^[.0-9]+$|Wind Speed|Hi Temp|Hum").corr()
+    corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain").drop(["Wind Dir", "Wind Tx"], axis = 1).corr()
     cmap = sb.diverging_palette(5, 250, as_cmap = True)
-    sb.heatmap(corr, cmap = "Blues", annot = True, mask = np.triu(corr), center = 0)
+    sb.heatmap(corr, cmap = "Blues", mask = np.triu(corr), center = 0)
 
     # create_animated_plot(channels.iloc[0:500], fps = 50, window_size=100, save_path='SMPS_animation.gif')

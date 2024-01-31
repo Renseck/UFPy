@@ -21,6 +21,7 @@ import netCDF4 as nc
 BASE_FOLDER = "../../HAM_box_OpenIFS"
 INPUT_FOLDER = os.path.join(BASE_FOLDER, "input")
 DATA_FOLDER = os.path.join(BASE_FOLDER, "data")
+SRC_FOLDER = os.path.join(BASE_FOLDER, "src\\src_HAM\\")
 
 def read_input(filename):
     if filename in ["orig", "original"]:
@@ -76,6 +77,32 @@ def run_linux_command(command = "./ham_box", recompile = True, verbose = True):
     except subprocess.CalledProcessError as e:
         print(f"Error executing Linux command: {e}")
         
+def find_keyword_in_files(keyword, directory_path = SRC_FOLDER):
+    # This function exists because I am sick and tired of looking through source files myself
+    # Ensure the directory path is valid
+    results = []
+    if not os.path.exists(directory_path):
+        print(f"Error: Directory '{directory_path}' not found.")
+        return
+
+    # Iterate through all files in the directory
+    for filename in os.listdir(directory_path):
+        if filename.endswith(".f90"):
+            file_path = os.path.join(directory_path, filename)
+
+            # Open and read the file
+            with open(file_path, 'r') as file:
+                # Iterate through each line in the file
+                for line_number, line in enumerate(file, start=1):
+                    # Check if the keyword is present in the line
+                    if keyword in line:
+                        result = {"filename": filename,
+                                  "line_number": line_number,
+                                  "line": line}
+                        results.append(result)
+
+    return results
+
 
 def plot_size_dist(
     rdry, num, rows = [0], populations = ['a', 'b'],
