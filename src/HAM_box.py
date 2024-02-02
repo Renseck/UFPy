@@ -162,14 +162,7 @@ def copy_model_data(destination_folder):
     # Path exists now, so take the num.dat file from the data/ folder in HAM_box, and copy it to the new folder
     # We're assuming that if the path DOES exist, we're intending to overwrite it. This may come to bite us in the rear
     shutil.copy(os.path.join(HAM_DATA_FOLDER, "num.dat"), full_destination_path)
-    
-    """
-    IT WOULD BE VERY SMART TO ADD SOME KIND OF METADATA FILE HERE. A FILE THAT SHOWS PARAMETER SETTINGS ETC.
-    SO THAT WE CAN KEEP TRACK OF HOW EACH MODEL RUN/EXPERIMENT WAS CONDUCTED.
-    
-    Eventually, a function could check (by the metadata) whether a certain model configuration was already run. 
-    If not, go ahead and run it, and if yes: check this folder, your data is there. Maybe even return it outright?
-    """
+    copy_model_metadata(destination_folder)
         
 def read_model_data(destination_folder):
     # Start by making sure the input is a string, to forego any funny business
@@ -337,6 +330,9 @@ if __name__ == '__main__':
     # rdry has radii which are off by 2 orders of magnitudes, because SALSA works 
     # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
     rdry = rdry/100
+    
+    # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
+    # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
     
     experiment_name = "NUCL0"
     plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, name_addition = experiment_name)
