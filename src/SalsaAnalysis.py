@@ -15,6 +15,7 @@ Created on Wed Dec 13 09:08:27 2023
 import os
 import subprocess
 import pandas as pd 
+import numpy as np
 
 GITHUB_PATH = os.path.join(os.curdir, "..\\..") # Two levels up, back to the general GitHub directory
 SALSA_PATH = os.path.join(GITHUB_PATH, "SALSA-standalone")
@@ -58,3 +59,8 @@ def run_salsa(verbose = True):
     except subprocess.CalledProcessError as e:
         print(f"Error executing Linux command: {e}")
     
+if __name__ == "__main__":
+    salsa = SalsaSimulation()
+    salsa_bins = salsa.get_data("radii")
+    salsa_nc = salsa.get_data("output")
+    salsa_nc[np.linspace(1, len(salsa_nc.columns)-1, len(salsa_nc.columns)-1, dtype = int)].plot()

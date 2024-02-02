@@ -62,3 +62,34 @@ class PychamSimulation:
     
     def __str__(self):
         return f"{self.simname}\n{list(self.data.keys())}"
+    
+if __name__ == "__main__":
+    pycham0 = PychamSimulation("Example_Run_Output_2")
+    pycham1 = PychamSimulation("Slow_Chemical_Reactions")
+    
+    pycham0_bins = pycham0.get_data("size_bin_bounds")
+    pycham0_nc = pycham0.get_data("particle_number_concentration_dry").set_axis(
+        pycham0_bins.iloc[-1][1:], axis=1
+    )
+    
+    pycham0.plume_plot()
+
+    fig, ax = plt.subplots(figsize  = (10,6))
+    pycham0.pnc_plot(ax = ax, label = "Base")
+    pycham1.pnc_plot(ax = ax, label = "Slow")
+    plt.show()
+
+    pm01_bound = 0.1
+    pm25_bound = 2.5
+    pm01 = pycham0_nc[pycham0_nc.columns[pycham0_nc.columns < pm01_bound/2]]
+    pm25 = pycham0_nc[pycham0_nc.columns[pycham0_nc.columns < pm25_bound/2]]
+    pm01_total = pm01.sum(axis=1)
+    pm25_total = pm25.sum(axis=1)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(pm01_total.index/60, pm01_total, label = f"Dp < {pm01_bound} $\mu m$")
+    plt.plot(pm25_total.index/60, pm25_total, label = f"Dp < {pm25_bound} $\mu m$")
+    plt.xlabel("Time (hr)")
+    plt.ylabel("Concentration (# cm$^{-3}$)")
+    plt.legend()
+    plt.show()
