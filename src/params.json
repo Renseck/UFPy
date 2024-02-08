@@ -1,0 +1,84 @@
+{
+    "params": [
+        {
+            "name": "time_step_len",
+            "type": "num",
+            "file": "driver"
+        },
+        {
+            "name": "nham_subm",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "nseasalt",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "npist",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "naerorad",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "ndrydep",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "nwetdep",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "ndust",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "lscond",
+            "type": "bool",
+            "file": "mo_ham"
+        },
+        {
+            "name": "lscoag",
+            "type": "bool",
+            "file": "mo_ham"
+        },
+        {
+            "name": "nsoa",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "iaeroham",
+            "type": "num",
+            "file": "mo_ham"
+        },
+        {
+            "name": "nsnucl",
+            "type": "num",
+            "file": "mo_ham_salsactl"
+        },
+        {
+            "name": "locgas ",
+            "type": "bool",
+            "file": "mo_ham_salsactl"
+        },
+        {
+            "name": "lsol2b",
+            "type": "bool",
+            "file": "mo_ham_salsactl"
+        },
+        {
+            "name": "lhydr2b",
+            "type": "bool",
+            "file": "mo_ham_salsactl"
+        }
+    ]
+}

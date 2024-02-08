@@ -8,6 +8,7 @@
 # only slightly modified by me (Rens van Eck, BSc). The other functions were written by me
 # =============================================================================
 
+import json
 import os
 import subprocess
 import shutil
@@ -25,6 +26,7 @@ HAM_DATA_FOLDER = os.path.join(HAM_BASE_FOLDER, "data")
 HAM_SRC_FOLDER = os.path.join(HAM_BASE_FOLDER, "src\\src_HAM\\")
 RESULTS_FOLDER = "../results"
 MODEL_L0_FOLDER = os.path.join(RESULTS_FOLDER, "Model L0")
+MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
 
 
 def read_input(filename):
@@ -66,89 +68,117 @@ def edit_input(original_dataset, new_filename):
 
     return edited_dataset
 
-def run_model(command = "./ham_box", recompile = True, verbose = True):
+def run_model(experiment_name, recompile = True, verbose = True):
     # This is currently only setup to run commands in the HAM_box_OpenIFS directory.
+    run_command = "./ham_box"
     if recompile:
-        command = f"cd ../.. && cd HAM_box_OpenIFS && make dest_dir=/src/*/ && {command}"
+        command = f"cd ../.. && cd HAM_box_OpenIFS && make dest_dir=/src/*/ && {run_command}"
     else:
-        command = f"cd ../.. && cd HAM_box_OpenIFS && {command}"
+        command = f"cd ../.. && cd HAM_box_OpenIFS && {run_command}"
         
     try: 
         result = subprocess.run(["wsl", "bash", "-c", command], check = True,
                                 stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if verbose:
            print(f"{result.stderr.decode('ascii').strip()}")
+           
+        copy_model_data(experiment_name)
+        
     except subprocess.CalledProcessError as e:
         print(f"Error executing Linux command: {e}")
 
-def copy_model_metadata(destination_folder):
-    mo_ham = os.path.join(HAM_SRC_FOLDER, "mo_ham.f90")
-    salsactl = os.path.join(HAM_SRC_FOLDER, "mo_ham_salsactl.f90")
-    files = [mo_ham, salsactl]
+def gen_params():
+    """
+    This function reads the params.json file, to see which parameters need to be kept track of
 
-    params = [{"name": "nham_subm", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "nseasalt", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "npist", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "naerorad", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "ndrydep", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "nwetdep", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "ndust", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "lscond", "type": "bool", "file": "mo_ham", "pattern": ""},
-              {"name": "lscoag", "type": "bool", "file": "mo_ham", "pattern": ""},
-              {"name": "nsoa", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "iaeroham", "type": "num", "file": "mo_ham", "pattern": ""},
-              {"name": "nsnucl", "type": "num", "file": "mo_ham_salsactl", "pattern": ""},
-              {"name": "locgas ", "type": "bool", "file": "mo_ham_salsactl", "pattern": ""},
-              {"name": "lsol2b", "type": "bool", "file": "mo_ham_salsactl", "pattern": ""},
-              {"name": "lhydr2b", "type": "bool", "file": "mo_ham_salsactl", "pattern": ""},
-              ]
+    Returns
+    -------
+    paramlist : LIST
+        List of dictionaries containing regex patterns for each parameter.
+    files : LIST
+        List of files containing the parameter info.
+
+    """
+    with open("params.json", "r") as paramfile:
+        paramjson = json.load(paramfile)
+        
+    paramlist = paramjson["params"]
+    filenames = list(set(dict["file"] for dict in paramlist))
+    files = [os.path.join(HAM_SRC_FOLDER, filename + ".f90") for filename in filenames]
     
     # These are basic regex patterns, which we'll be formatting to catch those terms we're after
-    base_num_pattern = r"INTEGER\s*(?:,\s*(PUBLIC|PARAMETER))?\s*::\s*{}\s*=\s*(\d+)"
-    # base_bool_pattern = r"LOGICAL\s*(?:,\s*(PUBLIC|PARAMETER))?\s*::\s*{}\s*=\s*(\.TRUE\.|\.FALSE\.)"
+    base_num_pattern = r"(?:INTEGER\s*)?(?:,\s*(PUBLIC|PARAMETER))?\s*(?:::)?\s*{}\s*=\s*(\d+)"
     base_bool_pattern = r"(?:LOGICAL\s*)?(?:,\s*(PUBLIC|PARAMETER))?\s*(?:::)?\s*{}\s*=\s*(\.TRUE\.|\.FALSE\.)"
     patterndict = {"num": base_num_pattern,
-                   "bool": base_bool_pattern}
+                   "bool": base_bool_pattern
+                   }
     
     # Generate the specific regex patterns and write them into the dicts
-    for paramdict in params:
-        paramdict["pattern"] = patterndict[paramdict["type"]].format(paramdict["name"])
+    for item in paramlist:
+        item["pattern"] = patterndict[item["type"]].format(item["name"])
+        
+    return paramlist, files
 
-    # Start writing the metadata in a loop here - split these up between the various control files
-    # Could maybe figure out a way to write that into a clever loop?
-    mo_ham_params = [item for item in params if item["file"] == "mo_ham"]
-    salsa_params = [item for item in params if item["file"] == "mo_ham_salsactl"]
+def read_model_metadata():
+    """
+    Reads CURRENT metadata from all files given
+
+    Parameters
+    ----------
+    file_list : LIST
+        List of names of files (without .f90) to be read from.
+    paramdict_list : LIST
+        List of dictionaries containing parameter info to be read (see copy_model_metadata() for more info).
+
+    Returns
+    -------
+    metadata : STRING
+        Formatted string of model metadata.
+
+    """
+    
     metadata = ""
-                
-    # Read mo_ham.f90 first
-    with open(mo_ham) as file:
-        lines = file.readlines()
     
-    # Filter out commented lines because those are really messing with my regex
-    lines = [line.strip() for line in lines if line.strip().startswith("!") == False]
-    content = "\n".join(lines)
-        
-    for paramdict in mo_ham_params:
-        paramstate = re.search(paramdict["pattern"], content).group(2)
-        metadata += f"{paramdict['name']} = {paramstate}\n"
-        
-    # Read mo_ham_salsactl.f90 next
-    with open(salsactl) as file:
-        lines = file.readlines()
+    paramdict_list, file_list = gen_params()
     
-    # Filter out commented lines because those are really messing with my regex
-    lines = [line.strip() for line in lines if line.strip().startswith("!") == False]
-    content = "\n".join(lines)
+    for file in file_list:
+    
+        with open(file) as f:
+            lines = f.readlines()
+            
+        lines = [line.strip() for line in lines if line.strip().startswith("!") == False]
+        content = "\n".join(lines)
         
-    for paramdict in salsa_params:
-        paramstate = re.search(paramdict["pattern"], content).group(2)
-        metadata += f"{paramdict['name']} = {paramstate}\n"
+        for paramdict in paramdict_list:
+            matches = re.search(paramdict["pattern"], content)
+            if matches == None:
+                continue
+            else:
+                paramstate = matches.group(2)
+                metadata += f"{paramdict['name']} = {paramstate}\n"
+        
+    return metadata
+
+def copy_model_metadata(destination_folder):
+    # Read out the metadata from the various files
+    metadata = read_model_metadata()
         
     # Metadata is collected - bang it into a file
+    # Start by making sure the input is a string, to forego any funny business
+    destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
     with open(os.path.join(full_destination_path, "metadata.txt"), "w") as metafile:
         metafile.write(metadata)
     
+def check_metadata():
+    metadict = {}
+    for folder in os.listdir(MODEL_L0_FOLDER):
+        full_path = os.path.join(MODEL_L0_FOLDER, folder)
+        with open(os.path.join(full_path, "metadata.txt"), "r") as metafile:
+            metadata = metafile.read()
+            metadict[folder] = metadata
+            
+    return metadict
 
 def copy_model_data(destination_folder):
     # Start by making sure the input is a string, to forego any funny business
@@ -210,7 +240,7 @@ def plot_size_dist(
     rdry, num, rows = [0], populations = ['a', 'b'],
     xmin = None, xmax = None,
     ymin = None, ymax = None,
-    name_addition = ""
+    exp_name = ""
     ):
 
     ## make sure that row_nr is a list-like object
@@ -250,8 +280,14 @@ def plot_size_dist(
         if pop == "b":
             ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
             
-    figure_name = "size_distribution{addition}.png".format(addition = f"_{name_addition}" if name_addition != "" else "")
-    plt.savefig(os.path.join("../results", figure_name), bbox_inches = 'tight', pad_inches = 0)
+    figure_name = "size_distribution"
+    savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
+    
+    if not os.path.exists(savepath):
+        os.makedirs(savepath)
+        
+    full_savepath = os.path.join(savepath, figure_name)
+    plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
     plt.show()
 
 
@@ -274,7 +310,7 @@ def plot_size_dist_evolution(
     xmin = None, xmax = None,
     ymin = None, ymax = None,
     vmin = None, vmax = None,
-    name_addition = ""
+    exp_name = ""
     ):
 
     bin_boundaries = define_bin_boundaries()
@@ -317,9 +353,15 @@ def plot_size_dist_evolution(
         ax.set_ylim(bottom=ymin, top=ymax)
         
     fig.colorbar(cls, ax=axes.ravel().tolist())
-    figure_name = "size_distribution_LES_box{addition}.png".format(addition = f"_{name_addition}" if name_addition != "" else "")
-    plt.savefig(os.path.join("../results", figure_name), bbox_inches = 'tight', pad_inches = 0)
     ax.set_xlabel("Time")
+    figure_name = "size_distribution_LES_box.png"
+    savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
+    
+    if not os.path.exists(savepath):
+        os.makedirs(savepath)
+        
+    full_savepath = os.path.join(savepath, figure_name)
+    plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
     # plt.close()
     plt.show()
 
@@ -335,5 +377,6 @@ if __name__ == '__main__':
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
     
     experiment_name = "NUCL0"
-    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, name_addition = experiment_name)
-    plot_size_dist_evolution(rdry, num, vmin=1, name_addition = experiment_name)
+    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, exp_name = experiment_name)
+    plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name)
+    copy_model_data(experiment_name)
