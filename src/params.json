@@ -66,7 +66,7 @@
             "file": "mo_ham_salsactl"
         },
         {
-            "name": "locgas ",
+            "name": "locgas",
             "type": "bool",
             "file": "mo_ham_salsactl"
         },
@@ -79,6 +79,21 @@
             "name": "lhydr2b",
             "type": "bool",
             "file": "mo_ham_salsactl"
+        },
+	{
+	    "name": "kproma",
+            "type": "num",
+            "file": "driver_input"
+        },
+	{
+	    "name": "kbdim",
+            "type": "num",
+            "file": "driver_input"
+        },
+	{
+	    "name": "klev",
+            "type": "num",
+            "file": "driver_input"
         }
     ]
 }

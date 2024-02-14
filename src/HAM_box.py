@@ -19,6 +19,7 @@ import re
 import pandas as pd
 import cmocean as co
 import netCDF4 as nc
+from tqdm import tqdm
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -30,6 +31,7 @@ MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
 
 
 def read_input(filename):
+    # maybe pointless/deprecated function
     if filename in ["orig", "original"]:
         dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"))
 
@@ -46,6 +48,7 @@ def read_input(filename):
     return dataset
 
 def edit_input(original_dataset, new_filename):
+    # maybe pointless function
     # This will probably also require us to delete the original input file, but I'm foregoing that for the moment.
     
     edited_dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, new_filename), "w", format = "NETCDF4")
@@ -119,9 +122,33 @@ def gen_params():
         
     return paramlist, files
 
+def write_environmental_data(environmental_vals):
+    # The order of these variables is absolutely crucial - take care
+    # Ambient temperature, specific humidity, ambient pressure
+    content = " ".join(str(val) for val in environmental_vals)
+    
+    with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "w") as outfile:
+        outfile.write(content)
+        
+def read_environmental_data():
+    # The order of the variables is absolutely crucial - take care
+    # Ambient temperature, specific humidity, ambient pressure
+    environmental_vars = ["pt", "pqm1", "pap"]
+    metadata = ""
+    
+    with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "r") as infile:
+        content = infile.read()
+        
+    environmental_vals = content.split(" ")
+    
+    for var, val in zip(environmental_vars, environmental_vals):
+        metadata += f"{var} = {val}\n"
+        
+    return metadata
+
 def read_model_metadata():
     """
-    Reads CURRENT metadata from all files given
+    Reads CURRENT metadata from all files found in the params.json file
 
     Parameters
     ----------
@@ -157,6 +184,9 @@ def read_model_metadata():
                 paramstate = matches.group(2)
                 metadata += f"{paramdict['name']} = {paramstate}\n"
         
+    # Read environmental variables from .dat file, because we can't retrieve those with regex
+    metadata += read_environmental_data()
+    
     return metadata
 
 def copy_model_metadata(destination_folder):
@@ -174,9 +204,12 @@ def check_metadata():
     metadict = {}
     for folder in os.listdir(MODEL_L0_FOLDER):
         full_path = os.path.join(MODEL_L0_FOLDER, folder)
-        with open(os.path.join(full_path, "metadata.txt"), "r") as metafile:
-            metadata = metafile.read()
-            metadict[folder] = metadata
+        try:
+            with open(os.path.join(full_path, "metadata.txt"), "r") as metafile:
+                metadata = metafile.read()
+                metadict[folder] = metadata
+        except FileNotFoundError:
+            pass
             
     return metadict
 
@@ -240,7 +273,7 @@ def plot_size_dist(
     rdry, num, rows = [0], populations = ['a', 'b'],
     xmin = None, xmax = None,
     ymin = None, ymax = None,
-    exp_name = ""
+    exp_name = "", title = "",
     ):
 
     ## make sure that row_nr is a list-like object
@@ -280,14 +313,18 @@ def plot_size_dist(
         if pop == "b":
             ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
             
-    figure_name = "size_distribution"
-    savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
-    
-    if not os.path.exists(savepath):
-        os.makedirs(savepath)
+    if title != "":
+        fig.suptitle(title)
         
-    full_savepath = os.path.join(savepath, figure_name)
-    plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
+    if exp_name != "":
+        figure_name = "size_distribution.png"
+        savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
+        
+        if not os.path.exists(savepath):
+            os.makedirs(savepath)
+            
+        full_savepath = os.path.join(savepath, figure_name)
+        plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
     plt.show()
 
 
@@ -310,7 +347,7 @@ def plot_size_dist_evolution(
     xmin = None, xmax = None,
     ymin = None, ymax = None,
     vmin = None, vmax = None,
-    exp_name = ""
+    exp_name = "", title = "",
     ):
 
     bin_boundaries = define_bin_boundaries()
@@ -352,31 +389,37 @@ def plot_size_dist_evolution(
         ax.set_xlim(left=xmin, right=xmax)
         ax.set_ylim(bottom=ymin, top=ymax)
         
+    if title != "":
+        fig.suptitle(title)
+        
     fig.colorbar(cls, ax=axes.ravel().tolist())
     ax.set_xlabel("Time")
-    figure_name = "size_distribution_LES_box.png"
-    savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
     
-    if not os.path.exists(savepath):
-        os.makedirs(savepath)
+    if exp_name != "":
+        figure_name = "size_distribution_LES_box.png"
+        savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
         
-    full_savepath = os.path.join(savepath, figure_name)
-    plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
+        if not os.path.exists(savepath):
+            os.makedirs(savepath)
+            
+        full_savepath = os.path.join(savepath, figure_name)
+        plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
     # plt.close()
     plt.show()
 
         
 if __name__ == '__main__':
-    num  = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "num.dat"),  sep=r"\s+")
+    experiment_name = "FirstBin"
+    run_model(experiment_name = experiment_name, recompile = True)
+    num  = read_model_data(experiment_name)
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
+    
     # rdry has radii which are off by 2 orders of magnitudes, because SALSA works 
     # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
     rdry = rdry/100
     
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    
-    experiment_name = "NUCL0"
-    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 4000, 7080], ymin=1, exp_name = experiment_name)
-    plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name)
-    copy_model_data(experiment_name)
+    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 40000, 70000], ymin=1)
+    plot_size_dist_evolution(rdry, num, vmin=1)
+    # copy_model_data(experiment_name)
