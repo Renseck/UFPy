@@ -1,4 +1,4 @@
-<h1 align = "center"> ProjectName </h1> <br>
+<h1 align = "center"> UFPy </h1> <br>
 
 ## Table of Contents
 
@@ -10,11 +10,12 @@
 
 ## Introduction
 
-Write a little bit about what the project is - why you made it, what it does.
+Master thesis project, in which we try to model ultrafine particle (UFP) concentrations using the [HAM](#https://redmine.hammoz.ethz.ch/projects/hammoz) microphyics package, along with the [SALSA2.0](#https://gmd.copernicus.org/articles/11/3833/2018/) module. 
+Model data will be compared to measurement data. Measurements were made by [RIVM](#https://www.rivm.nl/). Results of this may be used to improve performance of the LOTOS-EUROS model, used by the RIVM to forecast air quality.
 
 ## Installation
 
-How do we get the program to run in the first place; things like `pip install -r requirements.txt` (located in src/).
+Start by running `pip install requirements.txt` after navigating to the `src/` folder. Next, make sure you place the HAM_box_OpenIFS model into the folders which contains the UFPy folder. Some manipulations need to be done to the model source files, depending on what you want to achieve. Instructions for this will follow (?).
 
 ## Usage
 
@@ -22,8 +23,8 @@ How do we use the program? Does it take command line input, does it need files p
 
 ## Acknowledgments
 
-This is where all references and the like go.
+Supervised by [Prof. Guus Velders](#https://www.uu.nl/medewerkers/GJMVelders).
 
 ## License
 
-[MIT](https://choosealicense.com/licenses/mit/) license, Copyright (c) 2023 Rens van Eck.
+[MIT](https://choosealicense.com/licenses/mit/) license, Copyright (c) 2024 Rens van Eck.

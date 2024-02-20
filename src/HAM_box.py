@@ -72,6 +72,23 @@ def edit_input(original_dataset, new_filename):
     return edited_dataset
 
 def run_model(experiment_name, recompile = True, verbose = True):
+    """
+    Runs the HAM_box_OpenIFS model. Make sure it is contained within the folder containing the UFPy folder.
+
+    Parameters
+    ----------
+    experiment_name : STR
+        Name of the folder to which the data should be written (in results/).
+    recompile : BOOL, optional
+        Recompile the model before running. The default is True.
+    verbose : BOOL, optional
+        Output error messages encountered in terminal. The default is True.
+
+    Returns
+    -------
+    None.
+
+    """
     # This is currently only setup to run commands in the HAM_box_OpenIFS directory.
     run_command = "./ham_box"
     if recompile:
@@ -123,6 +140,20 @@ def gen_params():
     return paramlist, files
 
 def write_environmental_data(environmental_vals):
+    """
+    Writes values to the environmental.dat file **IN ORDER**
+    [pt, pqm1, pap]
+    
+    Parameters
+    ----------
+    environmental_vals : LIST
+        Contains the values of the environmental values **IN ORDER**.
+
+    Returns
+    -------
+    None.
+
+    """
     # The order of these variables is absolutely crucial - take care
     # Ambient temperature, specific humidity, ambient pressure
     content = " ".join(str(val) for val in environmental_vals)
@@ -131,6 +162,15 @@ def write_environmental_data(environmental_vals):
         outfile.write(content)
         
 def read_environmental_data():
+    """
+    Reads the environmental.dat file, to see which values have been used to run the model last.
+    
+    Returns
+    -------
+    metadata : STRING
+        Formatted string of model environmental data.
+
+    """
     # The order of the variables is absolutely crucial - take care
     # Ambient temperature, specific humidity, ambient pressure
     environmental_vars = ["pt", "pqm1", "pap"]
@@ -190,6 +230,19 @@ def read_model_metadata():
     return metadata
 
 def copy_model_metadata(destination_folder):
+    """
+    Copies the model metadata to metadata.txt.
+
+    Parameters
+    ----------
+    destination_folder : STR
+        Name of the folder to which metadata.txt should be written.
+
+    Returns
+    -------
+    None.
+
+    """
     # Read out the metadata from the various files
     metadata = read_model_metadata()
         
@@ -201,6 +254,15 @@ def copy_model_metadata(destination_folder):
         metafile.write(metadata)
     
 def check_metadata():
+    """
+    Loops through all model result folders and reads their metadata.
+    
+    Returns
+    -------
+    metadict : DICT
+        Dictionary, with keys the name of every result folder, and values being the parameters of each model run folder.
+
+    """
     metadict = {}
     for folder in os.listdir(MODEL_L0_FOLDER):
         full_path = os.path.join(MODEL_L0_FOLDER, folder)
@@ -214,6 +276,19 @@ def check_metadata():
     return metadict
 
 def copy_model_data(destination_folder):
+    """
+    Copies model output to the destination folder.
+
+    Parameters
+    ----------
+    destination_folder : STR
+        Name of the folder to which num.dat should be copied.
+
+    Returns
+    -------
+    None.
+
+    """
     # Start by making sure the input is a string, to forego any funny business
     destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
@@ -228,6 +303,20 @@ def copy_model_data(destination_folder):
     copy_model_metadata(destination_folder)
         
 def read_model_data(destination_folder):
+    """
+    Reads the num.dat file within the destination_folder.
+    
+    Parameters
+    ----------
+    destination_folder : STR
+        Name of the folder in results/ to be read from.
+
+    Returns
+    -------
+    num : DataFrame
+        Pandas DataFrame of the num.dat file.
+
+    """
     # Start by making sure the input is a string, to forego any funny business
     destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
@@ -275,6 +364,37 @@ def plot_size_dist(
     ymin = None, ymax = None,
     exp_name = "", title = "",
     ):
+    """
+    Plots size distributions at various timesteps.
+
+    Parameters
+    ----------
+    rdry : DataFrame
+        Contains the bin boundaries.
+    num : DataFrame
+        Contains the numbers of particles per bin.
+    rows : List, optional
+        Time steps to be read and plotted. The default is [0].
+    populations : List, optional
+        Which populations of particles to show. The default is ['a', 'b'].
+    xmin : Float, optional
+        Left x-axis limit. The default is None.
+    xmax : Float, optional
+        Right x-axis limit. The default is None.
+    ymin : Float, optional
+        Bottom y-axis limit. The default is None.
+    ymax : Float, optional
+        Top y-axis likmit. The default is None.
+    exp_name : String, optional
+        Name of the experiment. The default is "". Leave empty to forego saving the image.
+    title : String, optional
+        Title of the image. The default is "".
+
+    Returns
+    -------
+    None.
+
+    """
 
     ## make sure that row_nr is a list-like object
     try:
@@ -304,7 +424,7 @@ def plot_size_dist(
             r_row = rdry.iloc[n][bins]
             N_row = num.iloc[n][bins]
 
-            ax.plot(r_row, N_row, label=n)
+            ax.plot(r_row, N_row, label=f"{n} s")
         ax.set_title(f"Population {pop}")
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -329,7 +449,20 @@ def plot_size_dist(
 
 
 def define_bin_boundaries(populations = ['1a', '2a', '2b']):
+    """
+    Defines bin boundaries for the various particle populations.
 
+    Parameters
+    ----------
+    populations : List, optional
+        List of particle populations. The default is ['1a', '2a', '2b'].
+
+    Returns
+    -------
+    dict
+        Bin boundaries per population.
+
+    """
     return {
         pop : (
             np.logspace(np.log10(3e-9), np.log10(50e-9), 4) if pop[0]=='1' else
@@ -347,8 +480,42 @@ def plot_size_dist_evolution(
     xmin = None, xmax = None,
     ymin = None, ymax = None,
     vmin = None, vmax = None,
-    exp_name = "", title = "",
-    ):
+    exp_name = "", title = "",):
+    """
+    
+
+    Parameters
+    ----------
+    rdry : DataFrame
+        Contains the bin boundaries.
+    num : DataFrame
+        Contains the numbers of particles per bin.
+    rows : List, optional
+        Time steps to be read and plotted. The default is [0].
+    populations : List, optional
+        Which populations of particles to show. The default is ['a', 'b'].
+    xmin : Float, optional
+        Left x-axis limit. The default is None.
+    xmax : Float, optional
+        Right x-axis limit. The default is None.
+    ymin : Float, optional
+        Bottom y-axis limit. The default is None.
+    ymax : Float, optional
+        Top y-axis likmit. The default is None.
+    vmin : Float, optional
+        Bottom limit of the colorbar. The default is None.
+    vmax : FLoat, optional
+        Top limit of the colorbar. The default is None.
+    exp_name : String, optional
+        Name of the experiment. The default is "". Leave empty to forego saving the image.
+    title : String, optional
+        Title of the image. The default is "".
+
+    Returns
+    -------
+    None.
+
+    """
 
     bin_boundaries = define_bin_boundaries()
 
@@ -393,7 +560,7 @@ def plot_size_dist_evolution(
         fig.suptitle(title)
         
     fig.colorbar(cls, ax=axes.ravel().tolist())
-    ax.set_xlabel("Time")
+    ax.set_xlabel("Time (s)")
     
     if exp_name != "":
         figure_name = "size_distribution_LES_box.png"
@@ -410,7 +577,7 @@ def plot_size_dist_evolution(
         
 if __name__ == '__main__':
     experiment_name = "FirstBin"
-    run_model(experiment_name = experiment_name, recompile = True)
+    # run_model(experiment_name = experiment_name, recompile = True)
     num  = read_model_data(experiment_name)
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
     
