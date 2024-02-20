@@ -8,6 +8,8 @@ This file will serve as a complete and thorough documentation of the (main) func
 3. [Model data](#model-data)
 4. [Plotting](#plotting)
 
+---
+
 ## run_model
 This commands runs the model. Make sure that the HAM_box_OpenIFS model is also contained within your GitHub folder (needed for relative pathing).
 
@@ -32,6 +34,8 @@ def run_model(experiment_name, recompile = True, verbose = True):
     """
 ```
 Model is run (and recompiled first if set to `True`) by sending a command through the WSL terminal. Output  data is copied and saved to a folder named `experiment_name` in the `results/` folder (see [copy_model_data](#copy_model_data)).
+
+---
 
 ## Model metadata
 
@@ -148,6 +152,7 @@ def check_metadata():
 ```
 No arguments. Collects all the metadata available from each model run so far, and outputs them into a dictionary. Can be used to reduce running time dynamically, by checking whether a run has already been performed, and skipping a certain set of settings if so. Not yet in use.
 
+---
 
 ## Model data
 
@@ -189,6 +194,8 @@ def read_model_data(destination_folder):
     """
 ```
 Primary way of reading back the output of model runs. Avoids having to rerun the model over and over again, at the expense of some storage space.
+
+---
 
 ## Plotting
 

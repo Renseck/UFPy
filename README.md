@@ -10,8 +10,8 @@
 
 ## Introduction
 
-Master thesis project, in which we try to model ultrafine particle (UFP) concentrations using the [HAM](#https://redmine.hammoz.ethz.ch/projects/hammoz) microphyics package, along with the [SALSA2.0](#https://gmd.copernicus.org/articles/11/3833/2018/) module. 
-Model data will be compared to measurement data. Measurements were made by [RIVM](#https://www.rivm.nl/). Results of this may be used to improve performance of the LOTOS-EUROS model, used by the RIVM to forecast air quality.
+Master thesis project, in which we try to model ultrafine particle (UFP) concentrations using the [HAM](https://redmine.hammoz.ethz.ch/projects/hammoz) microphyics package, along with the [SALSA2.0](https://gmd.copernicus.org/articles/11/3833/2018/) module. 
+Model data will be compared to measurement data. Measurements were made by [RIVM](https://www.rivm.nl/). Results of this may be used to improve performance of the LOTOS-EUROS model, used by the RIVM to forecast air quality.
 
 ## Installation
 
@@ -23,7 +23,7 @@ How do we use the program? Does it take command line input, does it need files p
 
 ## Acknowledgments
 
-Supervised by [Prof. Guus Velders](#https://www.uu.nl/medewerkers/GJMVelders).
+Supervised by [Prof. Guus Velders](https://www.uu.nl/medewerkers/GJMVelders).
 
 ## License
 
