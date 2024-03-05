@@ -3,7 +3,7 @@
 # atmospheric chemistry and cloud formation. There is no GitHub repository or documentation for this distribution.
 # Investigation of the source code (driver.f90) seems to indicate that number concentration are
 # currently written to output in num.dat.
-# 
+#
 # The functions plot_size_dist, define_bin_boundaries, plot_size_dist_evolution were part of the original script, and
 # only slightly modified by me (Rens van Eck, BSc). The other functions were written by me
 # =============================================================================
@@ -11,15 +11,17 @@
 import json
 import os
 import subprocess
+# from itertools import product
 import shutil
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib import colors as mc
+# from matplotlib import pyplot as plt
+# from matplotlib import colors as mc
+# from scipy.interpolate import griddata
 import re
 import pandas as pd
-import cmocean as co
 import netCDF4 as nc
 from tqdm import tqdm
+import HAM_plot as hp
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -37,22 +39,24 @@ def read_input(filename):
 
     elif filename in ["kappa"]:
         dataset = nc.Dataset(os.path.join(HAM_BASE_FOLDER, "lut_kappa.nc"))
-        
+
     # This bit is for safekeeping the original input files, just incase that ends up being necessary
     # I'm just going to put a copy of it in the /data/backup folder, idc if it's bad practice
     if not os.path.exists(os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc")):
-        shutil.copy(os.path.join(HAM_INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"), os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc"))
+        shutil.copy(os.path.join(HAM_INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"),
+                    os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc"))
     if not os.path.exists(os.path.join("../data/Backup", "lut_kappa.nc")):
         shutil.copy(os.path.join(HAM_BASE_FOLDER, "lut_kappa.nc"), os.path.join("../data/Backup", "lut_kappa.nc"))
 
     return dataset
 
+
 def edit_input(original_dataset, new_filename):
     # maybe pointless function
     # This will probably also require us to delete the original input file, but I'm foregoing that for the moment.
-    
-    edited_dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, new_filename), "w", format = "NETCDF4")
-    
+
+    edited_dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, new_filename), "w", format="NETCDF4")
+
     # Copy dimensions from the original to the edited dataset
     for dim_name, dim_obj in original_dataset.dimensions.items():
         edited_dataset.createDimension(dim_name, len(dim_obj))
@@ -66,12 +70,13 @@ def edit_input(original_dataset, new_filename):
 
     # Modify the values of a variable in the edited dataset
     # This bit is going to include some Latin Hypercube Sampling (LHS) method to explore parameter space,
-    # Which will involve rewriting every variable one-by-one. 
+    # Which will involve rewriting every variable one-by-one.
     edited_dataset.variables['your_variable'][:] = np.ones_like(edited_dataset.variables['your_variable'][:]) * 42
 
     return edited_dataset
 
-def run_model(experiment_name, recompile = True, verbose = True):
+
+def run_model(experiment_name, recompile=True, verbose=True):
     """
     Runs the HAM_box_OpenIFS model. Make sure it is contained within the folder containing the UFPy folder.
 
@@ -95,17 +100,61 @@ def run_model(experiment_name, recompile = True, verbose = True):
         command = f"cd ../.. && cd HAM_box_OpenIFS && make dest_dir=/src/*/ && {run_command}"
     else:
         command = f"cd ../.. && cd HAM_box_OpenIFS && {run_command}"
-        
-    try: 
-        result = subprocess.run(["wsl", "bash", "-c", command], check = True,
-                                stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+
+    try:
+        result = subprocess.run(["wsl", "bash", "-c", command], check=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if verbose:
-           print(f"{result.stderr.decode('ascii').strip()}")
-           
+            print(f"OUTPUT: \n{result.stdout.decode('ascii').strip()}")
+            print(f"ERRORS: \n{result.stderr.decode('ascii').strip()}")
+
         copy_model_data(experiment_name)
-        
+
     except subprocess.CalledProcessError as e:
         print(f"Error executing Linux command: {e}")
+
+
+def run_variation(variation_name, nested_environmental_values):
+    """
+    Execute multiple model runs, with varied environental values
+
+    Parameters
+    ----------
+    variation_name : String
+        Name of the "overarching" experiment.
+    nested_environmental_values : List of list
+        Nested list / matrix of environmental values.
+
+    Returns
+    -------
+    None.
+
+    """
+    defaults = [298, 0.0058535, 101325]
+
+    # Make the "parent" folder for the data to be written into
+    if not os.path.exists(os.path.join(MODEL_L0_FOLDER, variation_name)):
+        os.mkdir(os.path.join(MODEL_L0_FOLDER, variation_name))
+
+    with tqdm(total=len(nested_environmental_values), desc="Processing", leave=True, position=0) as pbar:
+        for run, environmental_values in enumerate(nested_environmental_values):
+            write_environmental_data(environmental_values)
+            pt, pqm1, pap = environmental_values
+
+            description =  f"Processing [{pt:.2f}, {pqm1:.3e}, {pap:.3e}]"
+            description = description.ljust(45, " ")
+            pbar.set_description(desc = description)
+            experiment_name = os.path.join(variation_name, str(run))
+            # Recompile on the first (zeroth) run just in case
+            if run == 0:
+                run_model(experiment_name, recompile=True, verbose=False)
+            else:
+                run_model(experiment_name, recompile=False, verbose=False)
+
+            pbar.update(1)
+    # After the loop, reset to defaults
+    write_environmental_data(defaults)
+
 
 def gen_params():
     """
@@ -121,29 +170,30 @@ def gen_params():
     """
     with open("params.json", "r") as paramfile:
         paramjson = json.load(paramfile)
-        
+
     paramlist = paramjson["params"]
     filenames = list(set(dict["file"] for dict in paramlist))
     files = [os.path.join(HAM_SRC_FOLDER, filename + ".f90") for filename in filenames]
-    
+
     # These are basic regex patterns, which we'll be formatting to catch those terms we're after
     base_num_pattern = r"(?:INTEGER\s*)?(?:,\s*(PUBLIC|PARAMETER))?\s*(?:::)?\s*{}\s*=\s*(\d+)"
     base_bool_pattern = r"(?:LOGICAL\s*)?(?:,\s*(PUBLIC|PARAMETER))?\s*(?:::)?\s*{}\s*=\s*(\.TRUE\.|\.FALSE\.)"
     patterndict = {"num": base_num_pattern,
                    "bool": base_bool_pattern
                    }
-    
+
     # Generate the specific regex patterns and write them into the dicts
     for item in paramlist:
         item["pattern"] = patterndict[item["type"]].format(item["name"])
-        
+
     return paramlist, files
+
 
 def write_environmental_data(environmental_vals):
     """
     Writes values to the environmental.dat file **IN ORDER**
     [pt, pqm1, pap]
-    
+
     Parameters
     ----------
     environmental_vals : LIST
@@ -156,15 +206,26 @@ def write_environmental_data(environmental_vals):
     """
     # The order of these variables is absolutely crucial - take care
     # Ambient temperature, specific humidity, ambient pressure
-    content = " ".join(str(val) for val in environmental_vals)
     
+    # Check if the list is multi-dimensional, to allow for non-uniform environmentals.
+    # This checks positively - if the list contains lists...
+    content = ""
+    if any(isinstance(el, list) for el in environmental_vals):
+        for line in environmental_vals:
+            content += " ".join(str(val) for val in line) # Same functions, just add a space at the end
+            content += "\n"
+    
+    else:
+         content = " ".join(str(val) for val in environmental_vals)
+
     with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "w") as outfile:
         outfile.write(content)
-        
+
+
 def read_environmental_data():
     """
     Reads the environmental.dat file, to see which values have been used to run the model last.
-    
+
     Returns
     -------
     metadata : STRING
@@ -175,16 +236,17 @@ def read_environmental_data():
     # Ambient temperature, specific humidity, ambient pressure
     environmental_vars = ["pt", "pqm1", "pap"]
     metadata = ""
-    
+
     with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "r") as infile:
         content = infile.read()
-        
+
     environmental_vals = content.split(" ")
-    
+
     for var, val in zip(environmental_vars, environmental_vals):
         metadata += f"{var} = {val}\n"
-        
+
     return metadata
+
 
 def read_model_metadata():
     """
@@ -203,19 +265,19 @@ def read_model_metadata():
         Formatted string of model metadata.
 
     """
-    
+
     metadata = ""
-    
+
     paramdict_list, file_list = gen_params()
-    
+
     for file in file_list:
-    
+
         with open(file) as f:
             lines = f.readlines()
-            
+
         lines = [line.strip() for line in lines if line.strip().startswith("!") == False]
         content = "\n".join(lines)
-        
+
         for paramdict in paramdict_list:
             matches = re.search(paramdict["pattern"], content)
             if matches == None:
@@ -223,11 +285,12 @@ def read_model_metadata():
             else:
                 paramstate = matches.group(2)
                 metadata += f"{paramdict['name']} = {paramstate}\n"
-        
+
     # Read environmental variables from .dat file, because we can't retrieve those with regex
     metadata += read_environmental_data()
-    
+
     return metadata
+
 
 def copy_model_metadata(destination_folder):
     """
@@ -245,18 +308,19 @@ def copy_model_metadata(destination_folder):
     """
     # Read out the metadata from the various files
     metadata = read_model_metadata()
-        
+
     # Metadata is collected - bang it into a file
     # Start by making sure the input is a string, to forego any funny business
     destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
     with open(os.path.join(full_destination_path, "metadata.txt"), "w") as metafile:
         metafile.write(metadata)
-    
+
+
 def check_metadata():
     """
     Loops through all model result folders and reads their metadata.
-    
+
     Returns
     -------
     metadict : DICT
@@ -272,8 +336,36 @@ def check_metadata():
                 metadict[folder] = metadata
         except FileNotFoundError:
             pass
-            
+
     return metadict
+
+def parse_metadata(metadata):
+    """
+    Parse metadata string to dictionary for easier variable reading
+
+    Parameters
+    ----------
+    metadata : STR
+        String of metadata as outputted by read_model_metadata.
+
+    Returns
+    -------
+    parsed : DICT
+        Dictionary of metadata.
+
+    """
+    parsed = {}
+    for line in metadata.split("\n"):
+        if "=" in line:
+            name, value = line.split("=")
+            try:
+                parsed[name.strip()] = float(value)
+            except:
+                parsed[name.strip()] = value.strip()
+        else:
+            break
+            
+    return parsed
 
 def copy_model_data(destination_folder):
     """
@@ -292,20 +384,27 @@ def copy_model_data(destination_folder):
     # Start by making sure the input is a string, to forego any funny business
     destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
-    
+
     # Check if the path already exists - if no, make it
     if not os.path.exists(full_destination_path):
         os.makedirs(full_destination_path)
-        
+
     # Path exists now, so take the num.dat file from the data/ folder in HAM_box, and copy it to the new folder
     # We're assuming that if the path DOES exist, we're intending to overwrite it. This may come to bite us in the rear
-    shutil.copy(os.path.join(HAM_DATA_FOLDER, "num.dat"), full_destination_path)
+    data_files = [file for file in os.listdir(HAM_DATA_FOLDER) if file.endswith("dat")]
+    data_files.remove("rdry.dat")
+    data_files.remove("num_m7.dat")
+
     copy_model_metadata(destination_folder)
-        
+
+    for data_file in data_files:
+        shutil.copy(os.path.join(HAM_DATA_FOLDER, data_file), full_destination_path)
+
+
 def read_model_data(destination_folder):
     """
     Reads the num.dat file within the destination_folder.
-    
+
     Parameters
     ----------
     destination_folder : STR
@@ -313,25 +412,56 @@ def read_model_data(destination_folder):
 
     Returns
     -------
-    num : DataFrame
-        Pandas DataFrame of the num.dat file.
+    num : DataFrame / dictionary of DataFrames
+        Pandas DataFrame of the num.dat file. Dictionary of DataFrames when given a directory containing subdirectories.
 
+    metadata : string / dictionary of strings
+        String of model metadata. Dictionary of strings when given a directory containing subdirectories.
     """
     # Start by making sure the input is a string, to forego any funny business
     destination_folder = str(destination_folder)
     full_destination_path = os.path.join(MODEL_L0_FOLDER, destination_folder)
-    
+
+    # First check if this folder has subfolders - if yes, it's data from a variation experiment
+    has_subfolders = any(os.path.isdir(os.path.join(full_destination_path, item))
+                         for item in os.listdir(full_destination_path))
+
     # Check if the folder exist. If not, boot out immediately. Otherwise, read out the data.
     if not os.path.exists(full_destination_path):
         print("That folder does not exist! Check in the results directory, please.")
-        return None
-    
+        return None, None
+
     else:
-        num  = pd.read_csv(os.path.join(full_destination_path, "num.dat"),  sep=r"\s+")
-        return num
-        
-    
-def find_keyword(keyword, directory_path = HAM_SRC_FOLDER):
+        # If it doesnt have subfolders, just read the data as normal:
+        if has_subfolders == False:
+            num = pd.read_csv(os.path.join(full_destination_path, "num.dat"),  sep=r"\s+")
+            try:
+                with open(os.path.join(full_destination_path, "metadata.txt"), "r") as metafile:
+                    metadata = metafile.read()
+
+            except FileNotFoundError:
+                pass
+
+            return num, metadata
+
+        # Otherwise if it does, read every single subfolder's data, and put every dataframe into a dictionary
+        else:
+            subfolders = os.listdir(full_destination_path)
+            full_subfolder_paths = [os.path.join(full_destination_path, subfolder) for subfolder in subfolders]
+
+            numdict = {}
+            metadict = {}
+            for subfolder, full_subfolder_path in zip(subfolders, full_subfolder_paths):
+                with open(os.path.join(full_subfolder_path, "metadata.txt"), "r") as metafile:
+                    metadata = metafile.read()
+
+                metadict[str(subfolder)] = metadata
+                numdict[str(subfolder)] = pd.read_csv(os.path.join(full_subfolder_path, "num.dat"), sep=r"\s+")
+
+            return numdict, metadict
+
+
+def find_keyword(keyword, directory_path=HAM_SRC_FOLDER):
     # This function exists because I am sick and tired of looking through source files myself
     # Ensure the directory path is valid
     results = []
@@ -357,236 +487,26 @@ def find_keyword(keyword, directory_path = HAM_SRC_FOLDER):
 
     return results
 
+def q2RH(q, p, T):
+    T0 = 273.15
+    return 0.263*p*q / (np.exp((17.67*(T - T0)) / (T - 29.65)))
 
-def plot_size_dist(
-    rdry, num, rows = [0], populations = ['a', 'b'],
-    xmin = None, xmax = None,
-    ymin = None, ymax = None,
-    exp_name = "", title = "",
-    ):
-    """
-    Plots size distributions at various timesteps.
+def RH2q(RH, p, T):
+    T0 = 273.15
+    return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
 
-    Parameters
-    ----------
-    rdry : DataFrame
-        Contains the bin boundaries.
-    num : DataFrame
-        Contains the numbers of particles per bin.
-    rows : List, optional
-        Time steps to be read and plotted. The default is [0].
-    populations : List, optional
-        Which populations of particles to show. The default is ['a', 'b'].
-    xmin : Float, optional
-        Left x-axis limit. The default is None.
-    xmax : Float, optional
-        Right x-axis limit. The default is None.
-    ymin : Float, optional
-        Bottom y-axis limit. The default is None.
-    ymax : Float, optional
-        Top y-axis likmit. The default is None.
-    exp_name : String, optional
-        Name of the experiment. The default is "". Leave empty to forego saving the image.
-    title : String, optional
-        Title of the image. The default is "".
-
-    Returns
-    -------
-    None.
-
-    """
-
-    ## make sure that row_nr is a list-like object
-    try:
-        iter(rows)
-    except Exception:
-        rows = [rows]
-
-    nrows = 1
-    ncols = len(populations)
-    
-    fig, axes = plt.subplots(
-        nrows = nrows,
-        ncols = ncols,
-        figsize = (6*ncols, 4*nrows),
-        sharex = True,
-        sharey = True,
-    )
-    plt.tight_layout()
-    fig.text(-0.01, 0.5, "# particles cm$^{-3}$", va = "center", rotation = "vertical")
-    fig.text(0.5, 0.04, "Diameter (m)", ha = "center")
-
-    for pop,ax in zip(populations, axes.ravel()):
-        bins = [col for col in rdry.columns if pop in col]
-
-        for n in rows:
-
-            r_row = rdry.iloc[n][bins]
-            N_row = num.iloc[n][bins]
-
-            ax.plot(r_row, N_row, label=f"{n} s")
-        ax.set_title(f"Population {pop}")
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.set_xlim(left=xmin, right=xmax)
-        ax.set_ylim(bottom=ymin, top=ymax)
-        if pop == "b":
-            ax.legend(title = "Time", bbox_to_anchor = (1.2, 1.02))
-            
-    if title != "":
-        fig.suptitle(title)
-        
-    if exp_name != "":
-        figure_name = "size_distribution.png"
-        savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
-        
-        if not os.path.exists(savepath):
-            os.makedirs(savepath)
-            
-        full_savepath = os.path.join(savepath, figure_name)
-        plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
-    plt.show()
-
-
-def define_bin_boundaries(populations = ['1a', '2a', '2b']):
-    """
-    Defines bin boundaries for the various particle populations.
-
-    Parameters
-    ----------
-    populations : List, optional
-        List of particle populations. The default is ['1a', '2a', '2b'].
-
-    Returns
-    -------
-    dict
-        Bin boundaries per population.
-
-    """
-    return {
-        pop : (
-            np.logspace(np.log10(3e-9), np.log10(50e-9), 4) if pop[0]=='1' else
-            np.concatenate([
-                np.logspace(np.log10(50e-9), np.log10(700e-9), 5, endpoint=True)[:-1],
-                np.logspace(np.log10(700e-9), np.log10(10000e-9),4, endpoint=True),
-            ])
-        )
-        for pop in populations
-    }
-
-
-def plot_size_dist_evolution(
-    rdry, num, populations = ['a', 'b'],
-    xmin = None, xmax = None,
-    ymin = None, ymax = None,
-    vmin = None, vmax = None,
-    exp_name = "", title = "",):
-    """
-    
-
-    Parameters
-    ----------
-    rdry : DataFrame
-        Contains the bin boundaries.
-    num : DataFrame
-        Contains the numbers of particles per bin.
-    rows : List, optional
-        Time steps to be read and plotted. The default is [0].
-    populations : List, optional
-        Which populations of particles to show. The default is ['a', 'b'].
-    xmin : Float, optional
-        Left x-axis limit. The default is None.
-    xmax : Float, optional
-        Right x-axis limit. The default is None.
-    ymin : Float, optional
-        Bottom y-axis limit. The default is None.
-    ymax : Float, optional
-        Top y-axis likmit. The default is None.
-    vmin : Float, optional
-        Bottom limit of the colorbar. The default is None.
-    vmax : FLoat, optional
-        Top limit of the colorbar. The default is None.
-    exp_name : String, optional
-        Name of the experiment. The default is "". Leave empty to forego saving the image.
-    title : String, optional
-        Title of the image. The default is "".
-
-    Returns
-    -------
-    None.
-
-    """
-
-    bin_boundaries = define_bin_boundaries()
-
-    nrows = len(populations)
-    ncols = 1
-    
-    fig, axes = plt.subplots(
-        nrows = nrows,
-        ncols = ncols,
-        figsize = (12*ncols, 4*nrows),
-        sharex = True,
-        sharey = True,
-    )
-
-    ## computing common color bar bounds:
-    vmin = num.values.min() if vmin is None else vmin
-    vmax = num.values.max() if vmax is None else vmax
-
-    for pop,ax in zip(populations, axes.ravel()):
-        bins = [col for col in rdry.columns if pop in col]
-
-        ## combining bin boundaries (omitting double values)
-        rbounds = [bounds for k,bounds in sorted(bin_boundaries.items()) if pop in k]
-        rbounds = np.concatenate([rb[:-1] for rb in rbounds[:-1]]+[rbounds[-1]])
-
-        ## time bounds
-        tbounds = np.arange(num.shape[0]+1)
-
-        ## generating meshgrid
-        t,r = np.meshgrid(tbounds,rbounds)
-      
-        norm = mc.LogNorm(vmin = vmin, vmax = vmax)
-        cls = ax.pcolormesh(t, r, num[bins].T, norm = norm, cmap = co.cm.dense)
-
-        ax.set_title(f"Population {pop}")
-        ax.set_yscale('log')
-        ax.set_ylabel("Diameter (m)")
-        ax.set_xlim(left=xmin, right=xmax)
-        ax.set_ylim(bottom=ymin, top=ymax)
-        
-    if title != "":
-        fig.suptitle(title)
-        
-    fig.colorbar(cls, ax=axes.ravel().tolist())
-    ax.set_xlabel("Time (s)")
-    
-    if exp_name != "":
-        figure_name = "size_distribution_LES_box.png"
-        savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
-        
-        if not os.path.exists(savepath):
-            os.makedirs(savepath)
-            
-        full_savepath = os.path.join(savepath, figure_name)
-        plt.savefig(full_savepath, bbox_inches = 'tight', pad_inches = 0)
-    # plt.close()
-    plt.show()
-
-        
 if __name__ == '__main__':
-    experiment_name = "FirstBin"
-    # run_model(experiment_name = experiment_name, recompile = True)
-    num  = read_model_data(experiment_name)
+    experiment_name = "DEFAULT"
+    # run_model(experiment_name=experiment_name, recompile=True)
+    num, metadata = read_model_data(experiment_name)
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
-    
-    # rdry has radii which are off by 2 orders of magnitudes, because SALSA works 
+
+    # rdry has radii which are off by 2 orders of magnitudes, because SALSA works
     # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
     rdry = rdry/100
-    
+
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    plot_size_dist(rdry, num, rows=[1,200,1000, 2000, 40000, 70000], ymin=1)
-    plot_size_dist_evolution(rdry, num, vmin=1)
+    hp.plot_size_dist(rdry, num, rows=[1, 200, 1000, 2000, 8000], ymin=1, exp_name = experiment_name, title = "Size distribution")
+    hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
     # copy_model_data(experiment_name)
