@@ -128,7 +128,7 @@ def plot_size_dist(
                 ax.legend(title="Time", bbox_to_anchor=(1.22, 1.02))
 
     if title != "":
-        fig.suptitle(title, y = 1.01, x = 0.47)
+        fig.suptitle(title, y = 1, x = 0.47)
 
     if exp_name != "":
         figure_name = f"size_distribution_{name_addition}.png" if name_addition != "" else "size_distribution.png"
@@ -139,7 +139,7 @@ def plot_size_dist(
 
         full_savepath = os.path.join(savepath, figure_name)
         plt.tight_layout()
-        plt.savefig(full_savepath, dpi = 150)
+        plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
         
     plt.show()
 
@@ -297,7 +297,7 @@ def plot_size_dist_evolution(
             os.makedirs(savepath)
 
         full_savepath = os.path.join(savepath, figure_name)
-        plt.savefig(full_savepath, pad_inches=0, dpi = 150)
+        plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
     # plt.close()
     plt.show()
 
@@ -380,6 +380,7 @@ def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20
 
         ax.set_xlabel("q $(\\frac{kg}{kg})$ $\\times 10^{-3}$")
         ax.set_ylabel("Ambient pressure (hPa)")
+        ax.yaxis.labelpad = 5
         constant_title = f"T = {environmental_df[0].iloc[0]:.2f} K"
 
     elif constant_var == 1:
@@ -406,7 +407,7 @@ def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20
 
     
     if colormap == None:
-        colormap = plt.cm.hot
+        colormap = co.cm.dense_r
         
     norm = mc.Normalize(vmin = num_grid.min(), vmax = num_grid.max())
     bin_boundaries = define_bin_boundaries()
@@ -417,7 +418,7 @@ def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20
     title = f"Bin {lower_boundary*1e9:.2f} - {upper_boundary*1e9:.2f} nm at {time} s \n[{constant_title}]"
     fig.suptitle(title)
     ax.plot_surface(x_grid, y_grid, num_grid, norm = norm, cmap = colormap)
-    ax.set_zlabel(f"# particles m$^{-3}\\times 10^{{{order_of_magnitude}}}$")
+    ax.set_zlabel(f"# particles m$^{{{-3}}}\\times 10^{{{order_of_magnitude}}}$")
     ax.zaxis.labelpad = 5
     ax.set_box_aspect(aspect = None, zoom = 0.9)
     fig.tight_layout()

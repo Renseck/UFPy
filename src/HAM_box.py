@@ -1,11 +1,12 @@
 # =============================================================================
-# This file functions to analyse the output of the *SMALL* SALSA2.0 Standalone model, which DOES NOT include
-# atmospheric chemistry and cloud formation. There is no GitHub repository or documentation for this distribution.
+# This file functions to analyse the output of the *SMALL* HAM box model, mostly using the salsa2.0 package, 
+# which DOES NOT include atmospheric chemistry and cloud formation.
+# There is no GitHub repository or documentation for this distribution.
 # Investigation of the source code (driver.f90) seems to indicate that number concentration are
 # currently written to output in num.dat.
 #
 # The functions plot_size_dist, define_bin_boundaries, plot_size_dist_evolution were part of the original script, and
-# only slightly modified by me (Rens van Eck, BSc). The other functions were written by me
+# only slightly modified by me (Rens van Eck, BSc). The other functions were written by me.
 # =============================================================================
 
 import json
