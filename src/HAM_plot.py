@@ -356,12 +356,23 @@ def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20
 
     numlist = []
     environmental_vals = []
-    for key, num in numdict.items():
-        metadata = metadict[key]
-        environmentals = [float(line.split("=")[1].strip()) for line in metadata.split("\n") if line.startswith(("pt", "pqm1", "pap"))]
-
-        numlist.append(num[binName].iloc[time])
-        environmental_vals.append(environmentals)
+    
+    if type(binName) == str:
+        for key, num in numdict.items():
+            metadata = metadict[key]
+            environmentals = [float(line.split("=")[1].strip()) for line in metadata.split("\n") if line.startswith(("pt", "pqm1", "pap"))]
+    
+            numlist.append(num[binName].iloc[time])
+            environmental_vals.append(environmentals)
+      
+    # If we input a list of bins, assume we want the total (sum) of it
+    elif type(binName) == list:
+        for key, num in numdict.items():
+            metadata = metadict[key]
+            environmentals = [float(line.split("=")[1].strip()) for line in metadata.split("\n") if line.startswith(("pt", "pqm1", "pap"))]
+    
+            numlist.append(num[binName].sum(axis = 1).iloc[time])
+            environmental_vals.append(environmentals)
 
     environmental_df = pd.DataFrame(data = environmental_vals)
 
@@ -411,11 +422,19 @@ def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20
         
     norm = mc.Normalize(vmin = num_grid.min(), vmax = num_grid.max())
     bin_boundaries = define_bin_boundaries()
-    binName_split = re.split("(?<=[a-zA-Z])(?=\d)", binName)
     
-    lower_boundary = bin_boundaries[binName_split[0]][int(binName_split[1])-1]
-    upper_boundary = bin_boundaries[binName_split[0]][int(binName_split[1])]
-    title = f"Bin {lower_boundary*1e9:.2f} - {upper_boundary*1e9:.2f} nm at {time} s \n[{constant_title}]"
+    if type(binName) == str:
+        binName_split = re.split("(?<=[a-zA-Z])(?=\d)", binName)
+        lower_boundary = bin_boundaries[binName_split[0]][int(binName_split[1])-1]
+        upper_boundary = bin_boundaries[binName_split[0]][int(binName_split[1])]
+        title = f"Bin {lower_boundary*1e9:.2f} - {upper_boundary*1e9:.2f} nm at {time} s \n[{constant_title}]"
+    elif type(binName) == list:
+        lowerbinName_split = re.split("(?<=[a-zA-Z])(?=\d)", binName[0])
+        upperbinName_split = re.split("(?<=[a-zA-Z])(?=\d)", binName[-1])
+        lower_boundary = bin_boundaries[lowerbinName_split[0]][int(lowerbinName_split[1])-1]
+        upper_boundary = bin_boundaries[upperbinName_split[0]][int(upperbinName_split[1])]
+        title = f"Sum of bins {lower_boundary*1e9:.2f} - {upper_boundary*1e9:.2f} nm at {time} s \n[{constant_title}]"
+    
     fig.suptitle(title)
     ax.plot_surface(x_grid, y_grid, num_grid, norm = norm, cmap = colormap)
     ax.set_zlabel(f"# particles m$^{{{-3}}}\\times 10^{{{order_of_magnitude}}}$")
