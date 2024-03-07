@@ -347,7 +347,7 @@ def plot_variation_scatter(numdict, metadict, exp_name = "", binName = "1a1", ti
     plt.show()
     plt.close()
 
-def plot_variation_surface(numdict, metadict, exp_name, binName, time, elev = 20, azi = 110, name_addition = "",
+def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", time = 0, elev = 20, azi = 110, name_addition = "",
                            fig = None, ax = None, colormap = None):
     
     if fig is None and ax is None:
