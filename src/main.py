@@ -10,3 +10,4 @@ import numpy as np
 import matplotlib.pyplot as plt
 import measurement_data as md
 import HAM_box as ham
+import HAM_plot as hp

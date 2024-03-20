@@ -361,6 +361,8 @@ def parse_metadata(metadata):
             name, value = line.split("=")
             try:
                 parsed[name.strip()] = float(value)
+                if name.strip() not in ["pt", "pqm1", "pap"]:
+                    parsed[name.strip()] = int(value)
             except:
                 parsed[name.strip()] = value.strip()
         else:
@@ -497,8 +499,10 @@ def RH2q(RH, p, T):
     return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
 
 if __name__ == '__main__':
-    experiment_name = "DEFAULT"
-    # run_model(experiment_name=experiment_name, recompile=True)
+    experiment_name = "TEST"
+    run_model(experiment_name=experiment_name, recompile=True)
+    bin_boundaries = hp.define_bin_boundaries()
+    bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     num, metadata = read_model_data(experiment_name)
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
 
