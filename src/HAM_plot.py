@@ -12,6 +12,7 @@ from matplotlib import colors as mc
 from scipy.interpolate import griddata
 import pandas as pd
 import cmocean as co
+from utils import order_of_magnitude
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -20,14 +21,6 @@ HAM_SRC_FOLDER = os.path.join(HAM_BASE_FOLDER, "src\\src_HAM\\")
 RESULTS_FOLDER = "../results"
 MODEL_L0_FOLDER = os.path.join(RESULTS_FOLDER, "Model L0")
 MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
-
-def q2RH(q, p, T):
-    T0 = 273.15
-    return 0.263*p*q / (np.exp((17.67*(T - T0)) / (T - 29.65)))
-
-def RH2q(RH, p, T):
-    T0 = 273.15
-    return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
 
 def plot_size_dist(
     rdry, num, rows=[0], populations=['a', 'b'],
@@ -301,7 +294,132 @@ def plot_size_dist_evolution(
     # plt.close()
     plt.show()
 
+def stacked_timeseries_plot(
+        num, populations = ['a', 'b'],
+        xmin = None, xmax = None,
+        ymin = None, ymax = None,
+        exp_name = "", title = "", name_addition = "",
+        colormap = None):
+    """
+    Generates vertically stacked timeseries, each layer being a bin of the model.
+
+    Parameters
+    ----------
+    num : DataFrame
+        Contains the numbers of particles per bin.
+    populations : List, optional
+        Which populations of particles to show. The default is ['a', 'b'].
+    xmin : Float, optional
+        Left x-axis limit. The default is None.
+    xmax : Float, optional
+        Right x-axis limit. The default is None.
+    ymin : Float, optional
+        Bottom y-axis limit. The default is None.
+    ymax : Float, optional
+        Top y-axis limit. The default is None.
+    exp_name : String, optional
+        Name of the experiment. The default is "". Leave empty to forego saving the image.
+    title : String, optional
+        Title of the image. The default is "".
+    name_addition: String. 
+        Suffix for filename. The default is "".
+    Returns
+    -------
+    None.
+
+    """
+    
+    nrows = len(populations)
+    ncols = 1
+
+    fig, axes = plt.subplots(
+        nrows = nrows,
+        ncols = ncols,
+        figsize = (12*ncols, 4*nrows),
+        sharex = True, 
+        sharey = True,
+        tight_layout = True)
+
+    
+    bin_boundaries = define_bin_boundaries()
+
+    if colormap == None:
+        colormap = co.cm.dense
+    
+    for pop, ax in zip(populations, axes.ravel()):
+        bins = [col for col in num.columns if pop in col]
+        colors = colormap(np.linspace(0, 1, len(bins)))
+        
+        for ind, col in enumerate(num[bins].columns):
+            col_split = re.split("(?<=[a-zA-Z])(?=\d)", col)
+            lower_boundary = bin_boundaries[col_split[0]][int(col_split[1])-1]*1e9
+            upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
+            # Add >6 before the periods to have them left-align. Maybe looks better?
+            label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
+                    else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
+            ax.set_yscale("log")
+            
+            if ind == 0:
+                ax.plot(num.index, num[col], color = colors[ind])
+                ax.fill_between(num.index, num[col], 0, color = colors[ind], label = label)
+
+            else:
+                sum_so_far = num[num[bins].columns[range(ind)]].sum(axis = 1)
+                ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
+                ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
+
+        ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
+        ax.set_title(f"Population {pop}")
+        ax.set_xlim(left=xmin, right=xmax)
+        ax.set_ylim(bottom=ymin, top=ymax)
+
+    if title != "":
+        fig.suptitle(title, y = 1, x = 0.435)
+
+    plt.tight_layout()
+    # y-label
+    fontsize = 13
+    fig.text(-0.01, 0.5, "# particles m$^{-3}$", va = "center", rotation = "vertical", fontsize = fontsize)
+    ax.set_xlabel("Time (s)", fontsize = fontsize)
+    ax.legend(title = "Bins", bbox_to_anchor = (1.271, 1.02))  
+
+    if exp_name != "":
+        figure_name = f"stacked_distribution_timeseries_{name_addition}.png" if name_addition != "" else "stacked_distribution_timeseries.png"
+        savepath = os.path.join(MODEL_PLOT_FOLDER, exp_name)
+
+        if not os.path.exists(savepath):
+            os.makedirs(savepath)
+
+        full_savepath = os.path.join(savepath, figure_name)
+        plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
+
+    plt.show()
+    
+
 def plot_variation_scatter(numdict, metadict, exp_name = "", binName = "1a1", time = 0, name_addition = ""):
+    """
+    Generates sensitivity scatters of a environmental variable variation series.
+
+    Parameters
+    ----------
+    numdict : Dictionary
+        Dictionary of Pandas Dataframes (like num in other functions).
+    metadict : Dictionary
+        Dictinary of metadata strings.
+    exp_name : String, optional
+        Name of the experiment. Leave empty to forego saving the image. The default is "".
+    binName : String, optional
+        Name of the bin to be plotted. The default is "1a1".
+    time : Integer, optional
+        Time to be plotted. The default is 0.
+    name_addition : String, optional
+        File name addition, for easy lookup. The default is "".
+
+    Returns
+    -------
+    None.
+
+    """
     colormap = plt.cm.viridis
     fig = plt.figure(figsize = (10,6))
     plt.tight_layout()
@@ -349,7 +467,42 @@ def plot_variation_scatter(numdict, metadict, exp_name = "", binName = "1a1", ti
 
 def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", time = 0, elev = 20, azi = 110, name_addition = "",
                            fig = None, ax = None, colormap = None):
-    
+    """
+    Generates sensitivity surfaces of environmental variable variation runs.
+
+    Parameters
+    ----------
+   numdict : Dictionary
+       Dictionary of Pandas Dataframes (like num in other functions).
+   metadict : Dictionary
+       Dictinary of metadata strings.
+   exp_name : String, optional
+       Name of the experiment. Leave empty to forego saving the image. The default is "".
+   binName : String, optional
+       Name of the bin to be plotted. Entering multitple sums the bins together. The default is "1a1".
+   time : Integer, optional
+       Time to be plotted. The default is 0.
+    elev : Float, optional
+        Elevation of the perspective. The default is 20.
+    azi : Float, optional
+        Azimuth of the perspective. The default is 110.
+    name_addition : String, optional
+        File name addition, for easy lookup. The default is "".
+    fig : Matplotlib Figure, optional
+        Figure to add multiple surfaces in one. The default is None.
+    ax : Matplotlib Axes, optional
+        Axis to add multiple surfaces in one. The default is None.
+    colormap : Matplotlib Colormap, optional
+        Colormap to color surfaces. The default is None.
+
+    Returns
+    -------
+    fig : Matplotlib Figure, optional
+        Figure to add multiple surfaces in one.
+    ax : Matplotlib Axes, optional
+        Axis to add multiple surfaces in one.
+
+    """
     if fig is None and ax is None:
         fig = plt.figure(figsize = (10,6))
         ax = fig.add_subplot(projection = "3d")
@@ -412,9 +565,9 @@ def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", ti
         ax.set_ylabel("q $(\\frac{kg}{kg})$ $\\times 10^{-3}$")
         constant_title = f"p = {environmental_df[2].iloc[0]:.3e} Pa"
 
-    order_of_magnitude = int(np.floor(np.log10(np.abs(num_grid).max())))
+    max_order = order_of_magnitude(np.abs(num_grid).max())
 
-    num_grid = num_grid * (10 ** -order_of_magnitude)
+    num_grid = num_grid * (10 ** -max_order)
 
     
     if colormap == None:
@@ -437,7 +590,7 @@ def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", ti
     
     fig.suptitle(title)
     ax.plot_surface(x_grid, y_grid, num_grid, norm = norm, cmap = colormap)
-    ax.set_zlabel(f"# particles m$^{{{-3}}}\\times 10^{{{order_of_magnitude}}}$")
+    ax.set_zlabel(f"# particles m$^{{{-3}}}\\times 10^{{{max_order}}}$")
     ax.zaxis.labelpad = 5
     ax.set_box_aspect(aspect = None, zoom = 0.9)
     fig.tight_layout()

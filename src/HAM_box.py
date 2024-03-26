@@ -499,8 +499,8 @@ def RH2q(RH, p, T):
     return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
 
 if __name__ == '__main__':
-    experiment_name = "TEST"
-    run_model(experiment_name=experiment_name, recompile=True)
+    experiment_name = "test"
+    # run_model(experiment_name=experiment_name, recompile=True)
     bin_boundaries = hp.define_bin_boundaries()
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     num, metadata = read_model_data(experiment_name)
@@ -512,6 +512,6 @@ if __name__ == '__main__':
 
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    hp.plot_size_dist(rdry, num, rows=[1, 200, 1000, 2000, 8000], ymin=1, exp_name = experiment_name, title = "Size distribution")
+    hp.plot_size_dist(rdry, num, rows=[1, 200, 400], ymin=1, exp_name = experiment_name, title = "Size distribution")
     hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
     # copy_model_data(experiment_name)
