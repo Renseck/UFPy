@@ -26,6 +26,7 @@ def plot_size_dist(
     rdry, num, rows=[0], populations=['a', 'b'],
     xmin=None, xmax=None,
     ymin=None, ymax=None,
+    fig=None, axes=None, linestyle="-",
     exp_name="", title="", name_addition="",
 ):
     """
@@ -70,27 +71,30 @@ def plot_size_dist(
     nrows = 1
     ncols = len(populations)
 
-    fig, axes = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=(6*ncols, 4*nrows),
-        sharex=True,
-        sharey=True,
-    )
-    plt.tight_layout()
-    fig.text(-0.01, 0.5, "# particles m$^{-3}$", va="center", rotation="vertical")
-    fig.text(0.47, 0.04, "Diameter (m)", ha="center")
+    if fig == None and axes == None:
+        fig, axes = plt.subplots(
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(6*ncols, 4*nrows),
+            sharex=True,
+            sharey=True,
+        )
+        
+        plt.tight_layout()
+        fig.text(-0.01, 0.5, "# particles m$^{-3}$", va="center", rotation="vertical")
+        fig.text(0.47, 0.04, "Diameter (m)", ha="center")
 
     if ncols > 1:
         for pop, ax in zip(populations, axes.ravel()):
             bins = [col for col in rdry.columns if pop in col]
+            bins = [binName for binName in bins if binName in num.columns]
     
             for n in rows:
     
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
     
-                ax.plot(r_row, N_row, label=f"{n} s")
+                ax.plot(r_row, N_row, linestyle = linestyle, label=f"{n} s")
                 
             ax.set_title(f"Population {pop}")
             ax.set_xscale('log')
@@ -104,22 +108,23 @@ def plot_size_dist(
         for pop in populations:
             ax = axes
             bins = [col for col in rdry.columns if pop in col]
+            bins = [binName for binName in bins if binName in num.columns]
     
             for n in rows:
     
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
     
-                ax.plot(r_row, N_row, label=f"{n} s")
+                ax.plot(r_row, N_row, linestyle = linestyle, label=f"Model {n} s" if linestyle=="-" else f"Measurement")
                 
             ax.set_title(f"Population {pop}")
             ax.set_xscale('log')
             ax.set_yscale('log')
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
-            if pop == "b":
-                ax.legend(title="Time", bbox_to_anchor=(1.22, 1.02))
 
+            ax.legend(title="Data", bbox_to_anchor=(1.01, 1.02))
+                
     if title != "":
         fig.suptitle(title, y = 1, x = 0.47)
 
@@ -134,8 +139,7 @@ def plot_size_dist(
         plt.tight_layout()
         plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
         
-    plt.show()
-
+    return fig, axes
 
 def define_bin_boundaries(populations=['1a', '2a', '2b']):
     """
@@ -228,6 +232,7 @@ def plot_size_dist_evolution(
     if nrows > 1:
         for pop, ax in zip(populations, axes.ravel()):
             bins = [col for col in rdry.columns if pop in col]
+            bins = [binName for binName in bins if binName in num.columns]
     
             # combining bin boundaries (omitting double values)
             rbounds = [bounds for k, bounds in sorted(bin_boundaries.items()) if pop in k]
@@ -251,6 +256,7 @@ def plot_size_dist_evolution(
         for pop in populations:
             ax = axes
             bins = [col for col in rdry.columns if pop in col]
+            bins = [binName for binName in bins if binName in num.columns]
     
             # combining bin boundaries (omitting double values)
             rbounds = [bounds for k, bounds in sorted(bin_boundaries.items()) if pop in k]
@@ -292,7 +298,7 @@ def plot_size_dist_evolution(
         full_savepath = os.path.join(savepath, figure_name)
         plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
     # plt.close()
-    plt.show()
+    
 
 def stacked_timeseries_plot(
         num, populations = ['a', 'b'],
@@ -346,32 +352,63 @@ def stacked_timeseries_plot(
     if colormap == None:
         colormap = co.cm.dense
     
-    for pop, ax in zip(populations, axes.ravel()):
-        bins = [col for col in num.columns if pop in col]
-        colors = colormap(np.linspace(0, 1, len(bins)))
-        
-        for ind, col in enumerate(num[bins].columns):
-            col_split = re.split("(?<=[a-zA-Z])(?=\d)", col)
-            lower_boundary = bin_boundaries[col_split[0]][int(col_split[1])-1]*1e9
-            upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
-            # Add >6 before the periods to have them left-align. Maybe looks better?
-            label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
-                    else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
-            ax.set_yscale("log")
+    
+    if nrows > 1:
+        for pop, ax in zip(populations, axes.ravel()):
+            bins = [col for col in num.columns if pop in col]
+            colors = colormap(np.linspace(0, 1, len(bins)))
             
-            if ind == 0:
-                ax.plot(num.index, num[col], color = colors[ind])
-                ax.fill_between(num.index, num[col], 0, color = colors[ind], label = label)
-
-            else:
-                sum_so_far = num[num[bins].columns[range(ind)]].sum(axis = 1)
-                ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
-                ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
-
-        ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
-        ax.set_title(f"Population {pop}")
-        ax.set_xlim(left=xmin, right=xmax)
-        ax.set_ylim(bottom=ymin, top=ymax)
+            for ind, col in enumerate(num[bins].columns):
+                col_split = re.split("(?<=[a-zA-Z])(?=\d)", col)
+                lower_boundary = bin_boundaries[col_split[0]][int(col_split[1])-1]*1e9
+                upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
+                # Add >6 before the periods to have them left-align. Maybe looks better?
+                label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
+                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
+                ax.set_yscale("log")
+                
+                if ind == 0:
+                    ax.plot(num.index, num[col], color = colors[ind])
+                    ax.fill_between(num.index, num[col], 0, color = colors[ind], label = label)
+    
+                else:
+                    sum_so_far = num[num[bins].columns[range(ind)]].sum(axis = 1)
+                    ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
+                    ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
+    
+            ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
+            ax.set_title(f"Population {pop}")
+            ax.set_xlim(left=xmin, right=xmax)
+            ax.set_ylim(bottom=ymin, top=ymax)
+            
+    else:
+        for pop in populations:
+            ax = axes
+            bins = [col for col in num.columns if pop in col]
+            colors = colormap(np.linspace(0, 1, len(bins)))
+            
+            for ind, col in enumerate(num[bins].columns):
+                col_split = re.split("(?<=[a-zA-Z])(?=\d)", col)
+                lower_boundary = bin_boundaries[col_split[0]][int(col_split[1])-1]*1e9
+                upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
+                # Add >6 before the periods to have them left-align. Maybe looks better?
+                label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
+                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
+                ax.set_yscale("log")
+                
+                if ind == 0:
+                    ax.plot(num.index, num[col], color = colors[ind])
+                    ax.fill_between(num.index, num[col], 0, color = colors[ind], label = label)
+    
+                else:
+                    sum_so_far = num[num[bins].columns[range(ind)]].sum(axis = 1)
+                    ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
+                    ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
+    
+            ax.legend(title = "Bins", bbox_to_anchor = (0.5, 1.02))
+            ax.set_title(f"Population {pop}")
+            ax.set_xlim(left=xmin, right=xmax)
+            ax.set_ylim(bottom=ymin, top=ymax)
 
     if title != "":
         fig.suptitle(title, y = 1, x = 0.435)
@@ -393,7 +430,6 @@ def stacked_timeseries_plot(
         full_savepath = os.path.join(savepath, figure_name)
         plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
 
-    plt.show()
     
 
 def plot_variation_scatter(numdict, metadict, exp_name = "", binName = "1a1", time = 0, name_addition = ""):
@@ -461,9 +497,7 @@ def plot_variation_scatter(numdict, metadict, exp_name = "", binName = "1a1", ti
 
         full_savepath = os.path.join(savepath, figure_name)
         plt.savefig(full_savepath, bbox_inches='tight', pad_inches=0, dpi = 150)
-    
-    plt.show()
-    plt.close()
+
 
 def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", time = 0, elev = 20, azi = 110, name_addition = "",
                            fig = None, ax = None, colormap = None):
@@ -606,5 +640,4 @@ def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", ti
         full_savepath = os.path.join(savepath, figure_name)
         plt.savefig(full_savepath, bbox_inches='tight', pad_inches=0, dpi = 150)
 
-    #plt.show()
     return fig, ax

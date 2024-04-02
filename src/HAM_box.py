@@ -500,7 +500,7 @@ def RH2q(RH, p, T):
 
 if __name__ == '__main__':
     experiment_name = "test"
-    # run_model(experiment_name=experiment_name, recompile=True)
+    run_model(experiment_name=experiment_name, recompile=True)
     bin_boundaries = hp.define_bin_boundaries()
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     num, metadata = read_model_data(experiment_name)

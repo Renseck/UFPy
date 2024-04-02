@@ -24,7 +24,7 @@ RESULTS_FOLDER = "../results"
 
 
 def plot_data(dataframe, ax=None, title="", label="",
-              xlabel="Bin boundary [nm]", ylabel="[#particles cm${^-3}$]",
+              xlabel="Bin boundary (nm)", ylabel="# particles m${^-3}$",
               linestyle = "solid", alpha = 1):
     """
     Generates a plot of whatever you throw into it, but makes it easy to put things into the same axes.
@@ -184,7 +184,7 @@ def create_animated_plot(df, window_size=100, fps=24, save_path='animation.gif')
         return im
 
     cbar = plt.colorbar(update(0), ax=ax)
-    cbar.set_label("[#particles cm${^-3}$]")
+    cbar.set_label("[#particles m${^-3}$]")
 
     num_frames = len(df) - window_size + 1
     animation = FuncAnimation(fig, update, frames=num_frames, repeat=False)
@@ -224,14 +224,14 @@ def stacked_timeseries_plot(df):
             ax.fill_between(df.index, df[col] + sum_so_far, sum_so_far, color = colors[ind], label = f"{col} - {df.columns[ind+1]} nm")
 
     ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
-    ax.set_ylim(bottom=1, top=1e5)
+    ax.set_ylim(bottom=1, top=1e12)
     ax.set_title("Timeseries of measurement")
     ax.set_xlabel("Time")
-    ax.set_ylabel("# particles cm$^{-3}$")
+    ax.set_ylabel("# particles m$^{-3}$")
 
     num_ticks = 6
     step = len(df) // num_ticks
-    plt.xticks(df.index[::step], df["Datetime Corr"].dt.date.iloc[::step], rotation = 45)
+    #plt.xticks(df.index[::step], df["Datetime Corr"].dt.date.iloc[::step], rotation = 45)
     plt.show()
 
 def show_bin_difference(smps_dataframe):
@@ -253,7 +253,7 @@ def show_bin_difference(smps_dataframe):
     bin_boundaries = define_bin_boundaries()
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     
-    salsa_boundaries = np.concatenate(list(bin_boundaries.values()), 0)[:8] * 1e9
+    salsa_boundaries = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[:8] * 1e9)
     smps_boundaries = smps_dataframe.filter(regex = "^[.0-9]+$").columns.astype(float).values
     
     plt.figure(figsize = (10,6))
@@ -267,7 +267,22 @@ def show_bin_difference(smps_dataframe):
     plt.show()
     ###############################################
     
-    # This part shows how to resample them
+    plt.figure(figsize = (10,6))
+    plt.vlines(salsa_boundaries[3:6], 0, 1, label = "SALSA2.0")
+    plt.vlines(smps_boundaries[7:9], 1.25, 2.25, color = "orange", label = "SMPS")
+    plt.gca().axes.get_yaxis().set_visible(False)
+    plt.xlabel("Bin boundaries (nm)")
+    plt.xscale('log')
+    plt.legend(bbox_to_anchor = (1.17,1.018))
+    plt.title("Bin definitions SMPS / SALSA2.0")
+    plt.text(salsa_boundaries[3] - 1, -0.08, "$x_1$", fontsize = 14)
+    plt.text(salsa_boundaries[4] - 1, -0.08, "$x_2$", fontsize = 14)
+    plt.text(salsa_boundaries[5] - 1, -0.08, "$x_3$", fontsize = 14)
+    plt.text(smps_boundaries[7] - 1, 1.25-0.08, "$y_1$", fontsize = 14)
+    plt.text(smps_boundaries[8] - 1, 1.25-0.08, "$y_2$", fontsize = 14)
+    plt.show()
+    
+    # This part shows schematically how to resample them
     ###############################################
     fig, ax = plt.subplots(figsize = (10,6))
 
@@ -286,7 +301,7 @@ def show_bin_difference(smps_dataframe):
 
     for ind, salsa_lower, salsa_upper, salsa_bin_name in zip(range(len(salsa_boundaries[:-1])), salsa_boundaries[:-1],
                                                              salsa_boundaries[1:], bin_names[:6]):
-        
+        # Fill between the boundaries
         ax.axvspan(xmin = salsa_lower, xmax = salsa_upper, ymin = 0.045, ymax = 0.955, color = colors[ind])
         patches.append(mpatches.Patch(color = colors[ind], label = salsa_bin_name))
 
@@ -325,23 +340,57 @@ def resample_to_salsa(series):
 
             # Fully contained within salsa bounds
             if (smps_lower > salsa_lower) and (smps_upper < salsa_upper):
-                new_data[salsa_upper] = new_data.get(salsa_upper, 0) + smps_num
+                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num
 
             # Partially contained above
             elif (smps_lower > salsa_lower) and (smps_upper > salsa_upper) and not (smps_lower > salsa_upper):
                 weight = (salsa_upper - smps_lower) / (smps_upper - smps_lower)
-                new_data[salsa_upper] = new_data.get(salsa_upper, 0) + smps_num*weight
+                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
 
             # Partially contained below
             elif (smps_lower < salsa_lower) and (smps_upper < salsa_upper) and not (smps_upper < salsa_lower):
                 weight = (smps_upper - salsa_lower) / (smps_upper - smps_lower)
-                new_data[salsa_upper] = new_data.get(salsa_upper, 0) + smps_num*weight
+                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
 
             else:
-                new_data[salsa_upper] = new_data.get(salsa_upper, 0)
+                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0)
                 
-    resampled = pd.Series(new_data)
+    resampled = pd.DataFrame.from_dict(new_data, orient = "index").transpose()
     return resampled
+
+def get_nwsw_dist(smps_dataframe, weather_dataframe):
+    """
+    Just a quick function that wraps things together, to make importing the relevant distribution easier
+    
+    Parameters
+    ----------
+    smps_dataframe : Pandas DataFrame
+        Pandas DataFrame of the SMPS measurement series.
+    weather_dataframe : Pandas DataFrame
+        Pandas DataFrame of the DAVIS weather measurement series.
+    
+    Returns
+    -------
+    nw_sw_resampled : Pandas Series
+        Series containing the mean NW/SW distribution in #/m^-3.
+
+    """
+    smps_dataframe["datetime"] = pd.to_datetime(smps_dataframe["Datetime Raw"])
+    weather_dataframe["datetime"] = pd.to_datetime(weather_dataframe["datetime"])
+    
+    smps_bins = smps_dataframe.filter(regex="^[.0-9]+$").columns
+    smps_dataframe[smps_bins] = smps_dataframe[smps_bins] * 1e6
+    
+    channels = smps_dataframe.filter(regex="^[.0-9]+$")
+    merged_df = pd.merge_asof(smps_dataframe, weather_dataframe, on = "datetime", direction = "nearest")
+    merged_df = merged_df.drop(["time24"], axis = 1)
+    merged_df = merged_df.dropna()
+    
+    merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
+    nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 315) & (merged_df["winddir_deg"] >= 225)][channels.columns].mean()
+    nw_sw_resampled = resample_to_salsa(nw_sw_dist)
+    return nw_sw_resampled
+    
 
 if __name__ == "__main__":
     weather_df = read_measurement_data("Davis")
@@ -349,26 +398,33 @@ if __name__ == "__main__":
     smps_df = read_measurement_data("SMPS")
     smps_df["datetime"] = pd.to_datetime(smps_df["Datetime Raw"])
     
+    salsa_bin_boundaries = define_bin_boundaries()
+    salsa_upper_boundaries = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[1:8] * 1e9)
+    smps_bins = smps_df.filter(regex="^[.0-9]+$").columns
+    smps_df[smps_bins] = smps_df[smps_bins] * 1e6
+    
     show_bin_difference(smps_df)
-
+    
     channels = smps_df.filter(regex="^[.0-9]+$")
     merged_df = pd.merge_asof(smps_df, weather_df, on = "datetime", direction = "nearest")
+    merged_df = merged_df.drop(["time24"], axis = 1)
+    merged_df = merged_df.dropna()
     
     merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
     nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 315) & (merged_df["winddir_deg"] >= 225)][channels.columns].mean()
     nw_sw_resampled = resample_to_salsa(nw_sw_dist)
 
-    # Show the mean distribution of particles
+    # Show the various mean distribution of particles
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
     plot_data(nw_sw_dist, ax = axd["main"], label = "SW - NW")
     plot_data(channels.mean(), ax=axd["main"], label="All", title="Mean size distribution", linestyle = "dashed", alpha = 0.6)
     plot_data(channels[smps_df["Status"] != "No errors"].mean(), ax=axd["main"], label="No errors", linestyle = "dashed", alpha = 0.6)
-    plot_data(channels[smps_df["Status"] == "No errors"].mean(), ax=axd["main"], label="Only error", linestyle = "dashed", alpha = 0.6)
+    plot_data(channels[smps_df["Status"] == "No errors"].mean(), ax=axd["main"], label="Only errors", linestyle = "dashed", alpha = 0.6)
     plt.show()
     
     # Show the resampling of the nw_sw distribution
-    plt.plot(nw_sw_resampled, label = "SALSA2.0")
+    plt.plot(salsa_upper_boundaries, nw_sw_resampled.values[0], label = "SALSA2.0")
     plt.plot(nw_sw_dist.index.astype(float), nw_sw_dist.values, label = "SMPS")
     plt.legend()
     plt.xlabel("Upper bin boundary (nm)")
@@ -376,12 +432,11 @@ if __name__ == "__main__":
     plt.title("Resampled distribution")
     plt.show()
     
-# =============================================================================
-#     plt.figure(figsize = (10,6))
-#     plt.title("Correlations")
-#     corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain").drop(["Wind Dir", "Wind Tx"], axis = 1).corr()
-#     cmap = sb.diverging_palette(5, 250, as_cmap = True)
-#     sb.heatmap(corr, cmap = "Blues", mask = np.triu(corr), center = 0)
-# =============================================================================
+    # Plot (immediate) correlations
+    plt.figure(figsize = (10,6))
+    plt.title("Correlations")
+    corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain").drop(["Wind Dir", "Wind Tx"], axis = 1).corr()
+    cmap = sb.diverging_palette(5, 250, as_cmap = True)
+    sb.heatmap(corr, cmap = co.cm.balance_r, mask = np.triu(corr), center = 0)
 
     # create_animated_plot(channels.iloc[0:500], fps = 50, window_size=100, save_path='SMPS_animation.gif')
