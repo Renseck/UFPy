@@ -10,13 +10,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.animation import FuncAnimation
+from scipy.integrate import trapz
 
 import seaborn as sb
 import cmocean as co
 from windrose import WindroseAxes
 
-from utils import order_of_magnitude, complementary
+from utils import order_of_magnitude, complementary_color
 from HAM_plot import define_bin_boundaries
+import utils
 
 DATA_FOLDER = "../data"
 MEASUREMENTS_FOLDER = os.path.join(DATA_FOLDER, "Measurements")
@@ -121,7 +123,12 @@ def read_measurement_data(data_name, show_comments=True):
 
     if show_comments and comments != []:
         print(". ".join([comment.strip(".") for comment in comments]) + ".")
-
+    
+    if "datetime" in dataframe.columns:
+        dataframe["datetime"] = pd.to_datetime(dataframe["datetime"])
+    elif "Datetime Raw" in dataframe.columns:
+        dataframe["datetime"] = pd.to_datetime(dataframe["Datetime Raw"])
+        
     return dataframe
 
 
@@ -137,7 +144,7 @@ def plot_windrose(df, feature, title = "Figure Title", max_order = None):
         Feature to be windrosed.
     title : String, optional
         Figure title. The default is "Figure Title".
-    max_order : Float, optional
+    max_order : Float, optional33
         Order of magnitude to scale the windrose colours to. The default is None.
 
     Returns
@@ -158,7 +165,12 @@ def plot_windrose(df, feature, title = "Figure Title", max_order = None):
         bins = np.linspace(0, 10**order_of_magnitude(feat_pct75) + 1, 8)
     
     ax.bar(df["winddir_deg"], df[feature], normed = True, bins =  bins, opening = 0.8, edgecolor = "white", cmap = co.cm.dense)
-    ax.set_title(title)
+    
+    if title != "Figure Title":
+        ax.set_title(title)
+    else:
+        ax.set_title(feature)
+    
     ax.set_legend(title = "m/s")
 
 def create_animated_plot(df, window_size=100, fps=24, save_path='animation.gif'):
@@ -199,38 +211,42 @@ def stacked_timeseries_plot(df):
     Parameters
     ----------
     df : Pandas DataFrame
-        Dataframe containing the data to be shown (merged_df).
+        Dataframe containing the data to be shown (smps_df).
 
     Returns
     -------
     None.
 
     """
+    channels = df.filter(regex="^[.0-9]+$|datetime")
+    channels.set_index("datetime", inplace = True)
+    
     fig, ax = plt.subplots()
     colormap = plt.cm.rainbow_r
     
-    colors = colormap(np.linspace(1, 0, len(df.columns)))
+    colors = colormap(np.linspace(1, 0, len(channels.columns)))
 
-    for ind, col in enumerate(df.columns):
+    for ind, col in enumerate(channels.columns):
         ax.set_yscale("log")
 
         if ind == 0:
-            ax.plot(df.index, df[col], color = colors[ind])
-            ax.fill_between(df.index, df[col], 0, color = colors[ind], label = f"7 - {col} nm")
+            ax.plot(channels.index, channels[col], color = colors[ind])
+            ax.fill_between(channels.index, channels[col], 0, color = colors[ind], label = f"7 - {col} nm")
 
-        elif ind < len(df.columns) - 1:
-            sum_so_far = df[df.columns[range(ind)]].sum(axis = 1)
-            ax.plot(df.index, df[col] + sum_so_far, color = colors[ind])
-            ax.fill_between(df.index, df[col] + sum_so_far, sum_so_far, color = colors[ind], label = f"{col} - {df.columns[ind+1]} nm")
+        elif ind < len(channels.columns) - 1:
+            sum_so_far = channels[channels.columns[range(ind)]].sum(axis = 1)
+            ax.plot(channels.index, channels[col] + sum_so_far, color = colors[ind])
+            ax.fill_between(channels.index, channels[col] + sum_so_far, sum_so_far, color = colors[ind], label = f"{col} - {channels.columns[ind+1]} nm")
 
     ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
     ax.set_ylim(bottom=1, top=1e12)
     ax.set_title("Timeseries of measurement")
     ax.set_xlabel("Time")
     ax.set_ylabel("# particles m$^{-3}$")
+    plt.xticks(rotation = 45)
 
     num_ticks = 6
-    step = len(df) // num_ticks
+    step = len(channels) // num_ticks
     #plt.xticks(df.index[::step], df["Datetime Corr"].dt.date.iloc[::step], rotation = 45)
     plt.show()
 
@@ -294,7 +310,7 @@ def show_bin_difference(smps_dataframe):
     colors = colormap(np.linspace(1, 0, len(salsa_boundaries[:-1])), alpha = alpha)
     colors_full = colormap(np.linspace(1, 0, len(salsa_boundaries[:-1])))
 
-    line_color = complementary(*np.mean(colors_full, axis = 0)[:-1])
+    line_color = complementary_color(*np.mean(colors_full, axis = 0)[:-1])
     vlines = ax.vlines(smps_boundaries, smps_ymin, smps_ymax, color = line_color, label = "SMPS", linewidth = 3)
 
     patches = []
@@ -338,6 +354,8 @@ def resample_to_salsa(series):
     for salsa_lower, salsa_upper, salsa_bin_names in zip(salsa_boundaries[:-1], salsa_boundaries[1:], bin_names[:6]):
         for smps_lower, smps_upper, smps_num in zip(smps_boundaries[:-1], smps_boundaries[1:], series[:-1]):
 
+            salsa_width = salsa_upper - salsa_lower
+            smps_width = smps_upper - smps_lower
             # Fully contained within salsa bounds
             if (smps_lower > salsa_lower) and (smps_upper < salsa_upper):
                 new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num
@@ -345,11 +363,13 @@ def resample_to_salsa(series):
             # Partially contained above
             elif (smps_lower > salsa_lower) and (smps_upper > salsa_upper) and not (smps_lower > salsa_upper):
                 weight = (salsa_upper - smps_lower) / (smps_upper - smps_lower)
+                # weight /= (smps_width / salsa_width)
                 new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
 
             # Partially contained below
             elif (smps_lower < salsa_lower) and (smps_upper < salsa_upper) and not (smps_upper < salsa_lower):
                 weight = (smps_upper - salsa_lower) / (smps_upper - smps_lower)
+                # weight /= (smps_width / salsa_width)
                 new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
 
             else:
@@ -357,6 +377,43 @@ def resample_to_salsa(series):
                 
     resampled = pd.DataFrame.from_dict(new_data, orient = "index").transpose()
     return resampled
+
+def translate_particles(original_bins, original_counts, new_bins):
+    # Calculate the area under the curve for the original counts
+    new_bin_sizes = np.diff(new_bins)
+    area_original = trapz(original_counts, x=original_bins[:-1])
+    # area_original = sum(np.diff(original_bins) * original_counts)
+
+    # Initialize array to store translated counts for new bins
+    translated_counts = np.zeros(len(new_bins) - 1)
+
+    # Translate particle counts to new bins
+    for i in range(len(new_bins) - 1):
+        # Calculate the overlap between the original and new bins
+        overlap = np.maximum(0, np.minimum(original_bins[1:], new_bins[i+1]) - np.maximum(original_bins[:-1], new_bins[i]))
+        overlap_ratio = overlap / new_bin_sizes[i]
+
+        # Allocate particles from each original bin to the new bin
+        translated_counts[i] = np.sum(overlap_ratio * original_counts)
+
+    # Calculate the actual area under the curve for the translated counts
+    area_translated = trapz(translated_counts, x=new_bins[:-1])
+    # area_translated = sum(np.diff(new_bins) * translated_counts)
+
+    # Scale the translated counts to match the total count
+    translated_counts /= (area_original / area_translated)
+    test = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
+
+    return test
+
+def filter_outliers(df):
+    channels = df.filter(regex="^[.0-9]+$")
+    
+    for col in channels:
+        df.loc[df[col] > np.mean(df[col]) + 2*np.std(df[col]), col] = np.nan
+        df.loc[df[col] < np.mean(df[col]) - 2*np.std(df[col]), col] = np.nan
+        
+    return df
 
 def get_nwsw_dist(smps_dataframe, weather_dataframe):
     """
@@ -371,50 +428,68 @@ def get_nwsw_dist(smps_dataframe, weather_dataframe):
     
     Returns
     -------
-    nw_sw_resampled : Pandas Series
+    nw_sw_dist : Pandas Series
         Series containing the mean NW/SW distribution in #/m^-3.
+    environmental_vars: List
+        List containing the (ordered and) filtered environemntal variables.
 
-    """
-    smps_dataframe["datetime"] = pd.to_datetime(smps_dataframe["Datetime Raw"])
-    weather_dataframe["datetime"] = pd.to_datetime(weather_dataframe["datetime"])
-    
+    """    
     smps_bins = smps_dataframe.filter(regex="^[.0-9]+$").columns
     smps_dataframe[smps_bins] = smps_dataframe[smps_bins] * 1e6
     
-    channels = smps_dataframe.filter(regex="^[.0-9]+$")
+    channels = smps_dataframe[smps_bins]
     merged_df = pd.merge_asof(smps_dataframe, weather_dataframe, on = "datetime", direction = "nearest")
     merged_df = merged_df.drop(["time24"], axis = 1)
     merged_df = merged_df.dropna()
+        
+    nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 337.5) &
+                           (merged_df["winddir_deg"] >= 202.5) &
+                           (merged_df["Status"] == "No errors")][channels.columns].mean()
     
-    merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
-    nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 315) & (merged_df["winddir_deg"] >= 225)][channels.columns].mean()
-    nw_sw_resampled = resample_to_salsa(nw_sw_dist)
-    return nw_sw_resampled
+    env = merged_df[(merged_df["winddir_deg"] <= 337.5) &
+                    (merged_df["winddir_deg"] >= 202.5) &
+                    (merged_df["Status"] == "No errors")][['Temp Out', 'Spec Hum','Bar']].mean()
+    
+    temp = env["Temp Out"] + 273.15
+    hum = env["Spec Hum"]
+    press = env["Bar"] * 100
+    
+    environmental_vars = [temp, hum, press]
+    
+    return nw_sw_dist, environmental_vars
     
 
 if __name__ == "__main__":
     weather_df = read_measurement_data("Davis")
-    weather_df["datetime"] = pd.to_datetime(weather_df["datetime"])
+    weather_df["Spec Hum"] = utils.RH2q(weather_df["In Hum"], weather_df["Bar"]*100, weather_df["Temp Out"] + 273.15)
+    plot_windrose(weather_df[(weather_df["winddir_deg"] <= 337.5) & (weather_df["winddir_deg"] >= 202.5)],
+                  "Wind Speed")
+    
     smps_df = read_measurement_data("SMPS")
-    smps_df["datetime"] = pd.to_datetime(smps_df["Datetime Raw"])
+    smps_df = filter_outliers(smps_df)
     
     salsa_bin_boundaries = define_bin_boundaries()
+    salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
+    salsa_bins_float = [float(binbound) for binbound in salsa_bins]
     salsa_upper_boundaries = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[1:8] * 1e9)
     smps_bins = smps_df.filter(regex="^[.0-9]+$").columns
-    smps_df[smps_bins] = smps_df[smps_bins] * 1e6
+    smps_bins_float = [7.] + [float(binbound) for binbound in smps_bins]
     
     show_bin_difference(smps_df)
     
-    channels = smps_df.filter(regex="^[.0-9]+$")
     merged_df = pd.merge_asof(smps_df, weather_df, on = "datetime", direction = "nearest")
     merged_df = merged_df.drop(["time24"], axis = 1)
     merged_df = merged_df.dropna()
     
-    merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
-    nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 315) & (merged_df["winddir_deg"] >= 225)][channels.columns].mean()
-    nw_sw_resampled = resample_to_salsa(nw_sw_dist)
+    # merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
+    nw_sw_dist, _ = get_nwsw_dist(smps_df, weather_df)
+    
+    # nw_sw_resampled = resample_to_salsa(nw_sw_dist)
+    nw_sw_resampled = translate_particles(smps_bins_float, nw_sw_dist, salsa_bins_float)
 
     # Show the various mean distribution of particles
+    channels = smps_df.filter(regex="^[.0-9]+$")
+    
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
     plot_data(nw_sw_dist, ax = axd["main"], label = "SW - NW")
@@ -435,7 +510,10 @@ if __name__ == "__main__":
     # Plot (immediate) correlations
     plt.figure(figsize = (10,6))
     plt.title("Correlations")
-    corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain").drop(["Wind Dir", "Wind Tx"], axis = 1).corr()
+    corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain|Status").\
+           drop(["Wind Dir", "Wind Tx"], axis = 1).query("Status == 'No errors'").\
+           drop(["Status"], axis = 1).corr()
+           
     cmap = sb.diverging_palette(5, 250, as_cmap = True)
     sb.heatmap(corr, cmap = co.cm.balance_r, mask = np.triu(corr), center = 0)
 

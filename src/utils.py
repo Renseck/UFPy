@@ -21,7 +21,10 @@ def RH2q(RH, p, T):
     T0 = 273.15
     return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
 
-def complementary(r, g, b):
+def complementary_color(r, g, b):
    """returns RGB components of complementary color"""
    hsv = rgb_to_hsv(r, g, b)
    return hsv_to_rgb((hsv[0] + 0.5) % 1, hsv[1], hsv[2])
+
+def print_underlined(text):
+    print('\033[4m' + text + '\033[0m')
