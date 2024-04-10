@@ -6,12 +6,14 @@ Created on Tue Mar  5 11:28:14 2024
 """
 import os
 import re
-import numpy as np
+
+import cmocean as co
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from matplotlib import colors as mc
 from scipy.interpolate import griddata
-import pandas as pd
-import cmocean as co
+
 from utils import order_of_magnitude
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"

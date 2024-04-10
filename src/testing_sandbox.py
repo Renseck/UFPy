@@ -4,10 +4,11 @@ Created on Fri Apr  5 10:25:38 2024
 
 @author: rens_
 """
-import numpy as np
-from scipy.integrate import trapz
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from scipy.integrate import trapz
+
 from utils import print_underlined
 
 smps_bins = [7.0, 11.5, 15.4, 20.5, 27.4, 36.5, 48.7, 64.9, 86.6, 115.5, 154.0, 205.4, 273.8, 365.2]

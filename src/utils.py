@@ -4,8 +4,10 @@ Created on Fri Mar 22 10:20:12 2024
 
 @author: rens_
 """
+from colorsys import hsv_to_rgb, rgb_to_hsv
+
 import numpy as np
-from colorsys import rgb_to_hsv, hsv_to_rgb
+
 
 def order_of_magnitude(number):
     """Calculates order of magnitude of number"""

@@ -5,20 +5,20 @@ Created on Tue Jan 23 08:20:04 2024
 @author: rens_
 """
 import os
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+
+import cmocean as co
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sb
 from matplotlib.animation import FuncAnimation
 from scipy.integrate import trapz
-
-import seaborn as sb
-import cmocean as co
 from windrose import WindroseAxes
 
-from utils import order_of_magnitude, complementary_color
-from HAM_plot import define_bin_boundaries
 import utils
+from HAM_plot import define_bin_boundaries
+from utils import complementary_color, order_of_magnitude
 
 DATA_FOLDER = "../data"
 MEASUREMENTS_FOLDER = os.path.join(DATA_FOLDER, "Measurements")

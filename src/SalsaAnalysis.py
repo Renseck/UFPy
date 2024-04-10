@@ -14,8 +14,9 @@ Created on Wed Dec 13 09:08:27 2023
 
 import os
 import subprocess
-import pandas as pd 
+
 import numpy as np
+import pandas as pd
 
 GITHUB_PATH = os.path.join(os.curdir, "..\\..") # Two levels up, back to the general GitHub directory
 SALSA_PATH = os.path.join(GITHUB_PATH, "SALSA-standalone")

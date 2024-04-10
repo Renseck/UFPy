@@ -5,8 +5,9 @@ Created on Wed Dec 13 09:07:21 2023
 @author: rens_
 """
 import os
-import pandas as pd 
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 GITHUB_PATH = os.path.join(os.curdir, "..\\..") # Two levels up, back to the general GitHub directory
 PYCHAM_PATH = os.path.join(GITHUB_PATH, "PyCHAM\\PyCHAM\\output\\ex_chem_scheme")

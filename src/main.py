@@ -5,15 +5,17 @@ Created on Tue Nov 28 09:12:34 2023
 @author: rens_
 """
 import os
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
-from sklearn.metrics import r2_score, mean_squared_error
+
 import matplotlib.pyplot as plt
-import measurement_data as md
+import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_squared_error, r2_score
+from tqdm import tqdm
+
 import HAM_box as ham
 import HAM_plot as hp
-import utils 
+import measurement_data as md
+import utils
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -27,6 +29,7 @@ if __name__ == "__main__":
     # Start by reading measurement data and filtering/resampling
     smps_df = md.read_measurement_data("SMPS")
     smps_df = md.filter_outliers(smps_df)
+    
     smps_bins = smps_df.filter(regex="^[.0-9]+$").columns
     smps_bins_float = [7.] + [float(binbound) for binbound in smps_bins]
     
