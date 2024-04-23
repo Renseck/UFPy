@@ -45,7 +45,7 @@ if __name__ == "__main__":
     salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
     salsa_bins_float = [float(binbound) for binbound in salsa_bins]
     
-    nwsw_dist_orig, environmental_data = md.get_nwsw_dist(smps_df, weather_df)
+    nwsw_dist_orig, environmental_data = md.get_directional_dist(smps_df, weather_df, min_angle = 202.5, max_angle = 337.5)
     nwsw_dist = md.translate_particles(smps_bins_float, nwsw_dist_orig.values, salsa_bins_float)
     
     # Read model data
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     
     num, metadata = ham.read_model_data(experiment_name)
-    num5 = pd.read_csv(os.path.join(os.path.join(MODEL_L0_FOLDER, experiment_name), "num_5.dat"), sep = r"\s+")
+    # num5 = pd.read_csv(os.path.join(os.path.join(MODEL_L0_FOLDER, experiment_name), "num_5.dat"), sep = r"\s+")
     metadata = ham.parse_metadata(metadata)
     
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     print(f"Max R2 of {np.max(rsquareds):.2f} at time = {np.argmax(rsquareds)}s")
     print(f"Max correlation of {np.max(corrs):.2f} at time = {np.argmax(corrs)}s")
 
-    fig, axes = hp.plot_size_dist(rdry, nwsw_dist, rows = [0], populations = ["a"], ymin = 1, linestyle = "dashed")
-    hp.plot_size_dist(rdry, dist_to_check[nwsw_dist.columns], rows = [0, 20, 70, np.argmin(rmses)], populations = ["a"], ymin = 1e6, ymax = 1e12, fig = fig, axes = axes)
+    fig, axes = hp.plot_size_dist(rdry, nwsw_dist*1e6, rows = [0], populations = ["a"], ymin = 1, linestyle = "dashed")
+    hp.plot_size_dist(rdry, dist_to_check[nwsw_dist.columns], rows = [0, 30, 60], populations = ["a"], ymin = 1e6, ymax = 1e12, fig = fig, axes = axes)
     
 

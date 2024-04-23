@@ -97,6 +97,12 @@ def run_model(experiment_name, recompile=True, verbose=True):
     None.
 
     """
+    # Clear out any old num.dat files first, so that there's no annoying stragglers
+    num_files = [file for file in os.listdir(HAM_DATA_FOLDER) if file.startswith("num")]
+    num_files.remove("num_m7.dat")
+    for file in num_files:
+        os.remove(os.path.join(HAM_DATA_FOLDER, file))
+    
     # This is currently only setup to run commands in the HAM_box_OpenIFS directory.
     run_command = "./ham_box"
     if recompile:
@@ -397,7 +403,7 @@ def copy_model_data(destination_folder):
     # Path exists now, so take the num.dat file from the data/ folder in HAM_box, and copy it to the new folder
     # We're assuming that if the path DOES exist, we're intending to overwrite it. This may come to bite us in the rear
     data_files = [file for file in os.listdir(HAM_DATA_FOLDER) if file.endswith("dat")]
-    data_files.remove("rdry.dat")
+    data_files.remove("rdry_orig.dat")
     data_files.remove("num_m7.dat")
 
     copy_model_metadata(destination_folder)
@@ -502,7 +508,7 @@ def RH2q(RH, p, T):
 
 if __name__ == '__main__':
     experiment_name = "test"
-    run_model(experiment_name=experiment_name, recompile=True)
+    # run_model(experiment_name=experiment_name, recompile=True)
     bin_boundaries = hp.define_bin_boundaries()
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     num, metadata = read_model_data(experiment_name)
@@ -516,4 +522,5 @@ if __name__ == '__main__':
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
     hp.plot_size_dist(rdry, num, rows=[1, 200, 400], ymin=1, exp_name = experiment_name, title = "Size distribution")
     hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
+    hp.stacked_timeseries_plot(num, populations = ["a", "b"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution")
     # copy_model_data(experiment_name)

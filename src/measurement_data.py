@@ -113,9 +113,14 @@ def read_measurement_data(data_name, show_comments=True):
                     skip_rows += 1
                 else:
                     break
-
-        dataframe = pd.read_csv(file_path, skiprows=skip_rows)
-        comments = [comment for comment in comments if comment]  # Clean these up a little bit
+                
+        try:
+            dataframe = pd.read_csv(file_path, skiprows=skip_rows)
+            comments = [comment for comment in comments if comment]  # Clean these up a little bit
+            
+        except UnicodeDecodeError:
+            dataframe = pd.read_csv(file_path, skiprows=skip_rows, encoding = "ISO-8859-1", sep = ";")
+            comments = [comment for comment in comments if comment]  # Clean these up a little bit
 
     else:
         print(f"No matching file found for {data_name}")
@@ -221,7 +226,7 @@ def stacked_timeseries_plot(df):
     channels = df.filter(regex="^[.0-9]+$|datetime")
     channels.set_index("datetime", inplace = True)
     
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(dpi = 80)
     colormap = plt.cm.rainbow_r
     
     colors = colormap(np.linspace(1, 0, len(channels.columns)))
@@ -415,7 +420,7 @@ def filter_outliers(df):
         
     return df
 
-def get_nwsw_dist(smps_dataframe, weather_dataframe):
+def get_directional_dist(smps_dataframe, weather_dataframe, min_angle = 202.5, max_angle = 337.5):
     """
     Just a quick function that wraps things together, to make importing the relevant distribution easier
     
@@ -428,26 +433,24 @@ def get_nwsw_dist(smps_dataframe, weather_dataframe):
     
     Returns
     -------
-    nw_sw_dist : Pandas Series
-        Series containing the mean NW/SW distribution in #/m^-3.
+    directional_dist : Pandas Series
+        Series containing the mean directional distribution in #/m^-3.
     environmental_vars: List
         List containing the (ordered and) filtered environemntal variables.
 
     """    
     smps_bins = smps_dataframe.filter(regex="^[.0-9]+$").columns
-    smps_dataframe[smps_bins] = smps_dataframe[smps_bins] * 1e6
     
-    channels = smps_dataframe[smps_bins]
     merged_df = pd.merge_asof(smps_dataframe, weather_dataframe, on = "datetime", direction = "nearest")
     merged_df = merged_df.drop(["time24"], axis = 1)
     merged_df = merged_df.dropna()
         
-    nw_sw_dist = merged_df[(merged_df["winddir_deg"] <= 337.5) &
-                           (merged_df["winddir_deg"] >= 202.5) &
-                           (merged_df["Status"] == "No errors")][channels.columns].mean()
+    directional_dist = merged_df[(merged_df["winddir_deg"] <= max_angle) &
+                           (merged_df["winddir_deg"] >= min_angle) &
+                           (merged_df["Status"] == "No errors")][smps_bins].mean()
     
-    env = merged_df[(merged_df["winddir_deg"] <= 337.5) &
-                    (merged_df["winddir_deg"] >= 202.5) &
+    env = merged_df[(merged_df["winddir_deg"] <= max_angle) &
+                    (merged_df["winddir_deg"] >= min_angle) &
                     (merged_df["Status"] == "No errors")][['Temp Out', 'Spec Hum','Bar']].mean()
     
     temp = env["Temp Out"] + 273.15
@@ -456,17 +459,22 @@ def get_nwsw_dist(smps_dataframe, weather_dataframe):
     
     environmental_vars = [temp, hum, press]
     
-    return nw_sw_dist, environmental_vars
+    return directional_dist, environmental_vars
     
 
 if __name__ == "__main__":
     weather_df = read_measurement_data("Davis")
     weather_df["Spec Hum"] = utils.RH2q(weather_df["In Hum"], weather_df["Bar"]*100, weather_df["Temp Out"] + 273.15)
+    plot_windrose(weather_df, "Wind Speed")
     plot_windrose(weather_df[(weather_df["winddir_deg"] <= 337.5) & (weather_df["winddir_deg"] >= 202.5)],
                   "Wind Speed")
     
     smps_df = read_measurement_data("SMPS")
     smps_df = filter_outliers(smps_df)
+    stacked_timeseries_plot(smps_df[smps_df["Status"] == "No errors"])
+    
+    nox_all = read_measurement_data("NOx", show_comments = False)
+    nox = nox_all["NL10641"]
     
     salsa_bin_boundaries = define_bin_boundaries()
     salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
@@ -482,7 +490,7 @@ if __name__ == "__main__":
     merged_df = merged_df.dropna()
     
     # merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
-    nw_sw_dist, _ = get_nwsw_dist(smps_df, weather_df)
+    nw_sw_dist, _ = get_directional_dist(smps_df, weather_df, min_angle = 202.5, max_angle = 337.5)
     
     # nw_sw_resampled = resample_to_salsa(nw_sw_dist)
     nw_sw_resampled = translate_particles(smps_bins_float, nw_sw_dist, salsa_bins_float)
@@ -492,13 +500,14 @@ if __name__ == "__main__":
     
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
-    plot_data(nw_sw_dist, ax = axd["main"], label = "SW - NW")
-    plot_data(channels.mean(), ax=axd["main"], label="All", title="Mean size distribution", linestyle = "dashed", alpha = 0.6)
-    plot_data(channels[smps_df["Status"] != "No errors"].mean(), ax=axd["main"], label="No errors", linestyle = "dashed", alpha = 0.6)
-    plot_data(channels[smps_df["Status"] == "No errors"].mean(), ax=axd["main"], label="Only errors", linestyle = "dashed", alpha = 0.6)
+    plot_data(nw_sw_dist, ax = axd["main"], label = "SSW - NNW", title="Mean size distribution")
+    # plot_data(channels.mean(), ax=axd["main"], label="All", title="Mean size distribution", linestyle = "dashed", alpha = 0.6)
+    # plot_data(channels[smps_df["Status"] != "No errors"].mean(), ax=axd["main"], label="No errors", linestyle = "dashed", alpha = 0.6)
+    # plot_data(channels[smps_df["Status"] == "No errors"].mean(), ax=axd["main"], label="Only errors", linestyle = "dashed", alpha = 0.6)
     plt.show()
     
     # Show the resampling of the nw_sw distribution
+    fig = plt.figure(layout="tight", figsize=(10, 6))
     plt.plot(salsa_upper_boundaries, nw_sw_resampled.values[0], label = "SALSA2.0")
     plt.plot(nw_sw_dist.index.astype(float), nw_sw_dist.values, label = "SMPS")
     plt.legend()

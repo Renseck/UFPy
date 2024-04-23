@@ -80,6 +80,7 @@ def plot_size_dist(
             figsize=(6*ncols, 4*nrows),
             sharex=True,
             sharey=True,
+            dpi = 75
         )
         
         plt.tight_layout()
@@ -366,8 +367,8 @@ def stacked_timeseries_plot(
                 upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
                 # Add >6 before the periods to have them left-align. Maybe looks better?
                 label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
-                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
-                ax.set_yscale("log")
+                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\\rm \mu$m"
+                # ax.set_yscale("log")
                 
                 if ind == 0:
                     ax.plot(num.index, num[col], color = colors[ind])
@@ -395,8 +396,8 @@ def stacked_timeseries_plot(
                 upper_boundary = bin_boundaries[col_split[0]][int(col_split[1])]*1e9
                 # Add >6 before the periods to have them left-align. Maybe looks better?
                 label = f"{lower_boundary:.2f} - {upper_boundary:.2f} nm" if upper_boundary < 1000 \
-                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\mu$m"
-                ax.set_yscale("log")
+                        else f"{lower_boundary*1e-3:.2f} - {upper_boundary*1e-3:.2f} $\\rm \mu$m"
+                # ax.set_yscale("log")
                 
                 if ind == 0:
                     ax.plot(num.index, num[col], color = colors[ind])
@@ -407,7 +408,7 @@ def stacked_timeseries_plot(
                     ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
                     ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
     
-            ax.legend(title = "Bins", bbox_to_anchor = (0.5, 1.02))
+            ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
             ax.set_title(f"Population {pop}")
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
@@ -420,7 +421,7 @@ def stacked_timeseries_plot(
     fontsize = 13
     fig.text(-0.01, 0.5, "# particles m$^{-3}$", va = "center", rotation = "vertical", fontsize = fontsize)
     ax.set_xlabel("Time (s)", fontsize = fontsize)
-    ax.legend(title = "Bins", bbox_to_anchor = (1.271, 1.02))  
+    ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))  
 
     if exp_name != "":
         figure_name = f"stacked_distribution_timeseries_{name_addition}.png" if name_addition != "" else "stacked_distribution_timeseries.png"
