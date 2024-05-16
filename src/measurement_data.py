@@ -103,20 +103,34 @@ def read_measurement_data(data_name, show_comments=True):
         # RIVM files have comments between double quotes instead of the usual #, so we're checking for both.
         file_path = os.path.join(MEASUREMENTS_FOLDER, file)
 
-        skip_rows = 0
-
-        with open(file_path, 'r') as f:
-            for line in f:
-                if line.startswith('"') or line.startswith("#"):
-                    comment = line.strip().strip('"')
-                    comments.append(comment)
-                    skip_rows += 1
-                else:
-                    break
-                
+        try:
+            skip_rows = 0
+            with open(file_path, 'r', encoding = "utf-8") as f:
+                for line in f:
+                    if line.startswith("#") or line.startswith("\ufeff#"):
+                        comment = line.strip().strip('"')
+                        comments.append(comment)
+                        skip_rows += 1
+                    else:
+                        break
+                    
+        except UnicodeDecodeError:
+            skip_rows = 0
+            with open(file_path, 'r') as f:
+                for line in f:
+                    if line.startswith("#"):
+                        comment = line.strip().strip('"')
+                        comments.append(comment)
+                        skip_rows += 1
+                    else:
+                        break
+            
         try:
             dataframe = pd.read_csv(file_path, skiprows=skip_rows)
             comments = [comment for comment in comments if comment]  # Clean these up a little bit
+            if len(dataframe.columns) == 1:
+                # Let's just assume that this means the reader picked the wrong separator - switch to ;
+                dataframe = pd.read_csv(file_path, skiprows = skip_rows, sep = ";")
             
         except UnicodeDecodeError:
             dataframe = pd.read_csv(file_path, skiprows=skip_rows, encoding = "ISO-8859-1", sep = ";")
@@ -132,12 +146,12 @@ def read_measurement_data(data_name, show_comments=True):
     if "datetime" in dataframe.columns:
         dataframe["datetime"] = pd.to_datetime(dataframe["datetime"])
     elif "Datetime Raw" in dataframe.columns:
-        dataframe["datetime"] = pd.to_datetime(dataframe["Datetime Raw"])
+        dataframe["datetime"] = pd.to_datetime(dataframe["Datetime Corr"])
         
     return dataframe
 
 
-def plot_windrose(df, feature, title = "Figure Title", max_order = None):
+def plot_windrose(df, feature, title = "Figure Title", max_order = None, min_angle = 0, max_angle = 0):
     """
     Plots a windrose of the entered feature in the dataframe.
 
@@ -164,19 +178,34 @@ def plot_windrose(df, feature, title = "Figure Title", max_order = None):
     feat_max = feature_stats.iloc[7]
     
     if order_of_magnitude(feat_pct75) == order_of_magnitude(feat_max):
-        bins = np.linspace(0, np.floor(feat_max) - 1, 8)
+        bins = np.linspace(0, np.floor(feat_max) - 2, 8)
         
     else:
         bins = np.linspace(0, 10**order_of_magnitude(feat_pct75) + 1, 8)
     
-    ax.bar(df["winddir_deg"], df[feature], normed = True, bins =  bins, opening = 0.8, edgecolor = "white", cmap = co.cm.dense)
+    ax.bar(df["winddir_deg"], df[feature], normed = True, bins =  bins, opening = 0.8,
+           edgecolor = "white", cmap = co.cm.dense, alpha = 1)
+    
+    ax.set_legend(title = "m/s" if feature == "Wind Speed" else "# cm$^{-3}$", bbox_to_anchor=(-0.2, 0))
+    
+    # For highlighting certain bars
+    # Convert direction range to radians
+    direction_range = (min_angle, max_angle)
+    direction_range_rad = np.deg2rad(direction_range)
+
+    # Get the bin numbers corresponding to the direction range
+    bin_range = (np.floor(direction_range[0] / 22.5), np.ceil(direction_range[1] / 22.5))
+
+    for i, bar in enumerate(ax.patches):
+        if not len(bins)*bin_range[0] <= i <= len(bins)*bin_range[1] + 8:
+            bar.set_alpha(0.3)
     
     if title != "Figure Title":
         ax.set_title(title)
     else:
         ax.set_title(feature)
     
-    ax.set_legend(title = "m/s")
+    
 
 def create_animated_plot(df, window_size=100, fps=24, save_path='animation.gif'):
     fig, ax = plt.subplots()
@@ -244,15 +273,15 @@ def stacked_timeseries_plot(df):
             ax.fill_between(channels.index, channels[col] + sum_so_far, sum_so_far, color = colors[ind], label = f"{col} - {channels.columns[ind+1]} nm")
 
     ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
-    ax.set_ylim(bottom=1, top=1e12)
+    ax.set_ylim(bottom=1, top=1e6)
     ax.set_title("Timeseries of measurement")
     ax.set_xlabel("Time")
-    ax.set_ylabel("# particles m$^{-3}$")
+    ax.set_ylabel("# particles cm$^{-3}$")
     plt.xticks(rotation = 45)
 
-    num_ticks = 6
-    step = len(channels) // num_ticks
-    #plt.xticks(df.index[::step], df["Datetime Corr"].dt.date.iloc[::step], rotation = 45)
+    # num_ticks = 6
+    # step = len(channels) // num_ticks
+    # plt.xticks(df.index[::step], df["Datetime Corr"].dt.date.iloc[::step], rotation = 45)
     plt.show()
 
 def show_bin_difference(smps_dataframe):
@@ -275,7 +304,7 @@ def show_bin_difference(smps_dataframe):
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     
     salsa_boundaries = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[:8] * 1e9)
-    smps_boundaries = smps_dataframe.filter(regex = "^[.0-9]+$").columns.astype(float).values
+    smps_boundaries = np.concatenate([[7], smps_dataframe.filter(regex = "^[.0-9]+$").columns.astype(float).values])
     
     plt.figure(figsize = (10,6))
     plt.vlines(salsa_boundaries, 0, 1, label = "SALSA2.0")
@@ -285,22 +314,25 @@ def show_bin_difference(smps_dataframe):
     plt.xscale('log')
     plt.legend(bbox_to_anchor = (1.17,1.018))
     plt.title("Schematic difference in bins SMPS / SALSA2.0")
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/bin_difference.jpg"), dpi = 75)
     plt.show()
     ###############################################
     
     plt.figure(figsize = (10,6))
     plt.vlines(salsa_boundaries[3:6], 0, 1, label = "SALSA2.0")
-    plt.vlines(smps_boundaries[7:9], 1.25, 2.25, color = "orange", label = "SMPS")
+    plt.vlines(smps_boundaries[8:10], 1.25, 2.25, color = "orange", label = "SMPS")
     plt.gca().axes.get_yaxis().set_visible(False)
+    plt.gca().axes.get_xaxis().set_visible(False)
     plt.xlabel("Bin boundaries (nm)")
     plt.xscale('log')
-    plt.legend(bbox_to_anchor = (1.17,1.018))
+    plt.legend()
     plt.title("Bin definitions SMPS / SALSA2.0")
     plt.text(salsa_boundaries[3] - 1, -0.08, "$x_1$", fontsize = 14)
     plt.text(salsa_boundaries[4] - 1, -0.08, "$x_2$", fontsize = 14)
     plt.text(salsa_boundaries[5] - 1, -0.08, "$x_3$", fontsize = 14)
-    plt.text(smps_boundaries[7] - 1, 1.25-0.08, "$y_1$", fontsize = 14)
-    plt.text(smps_boundaries[8] - 1, 1.25-0.08, "$y_2$", fontsize = 14)
+    plt.text(smps_boundaries[8] - 1, 1.25-0.08, "$y_1$", fontsize = 14)
+    plt.text(smps_boundaries[9] - 1, 1.25-0.08, "$y_2$", fontsize = 14)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/bin_definitions.jpg"), dpi = 75)
     plt.show()
     
     # This part shows schematically how to resample them
@@ -331,6 +363,7 @@ def show_bin_difference(smps_dataframe):
     ax.set_xscale('log')
     plt.title("Remapping of SMPS bins to SALSA2.0 bins")
     plt.legend(handles = [vlines] + patches, bbox_to_anchor = (1.13, 1.018))
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/bin_remapping.jpg"), dpi = 75)
     plt.show()
     ###############################################
 
@@ -359,8 +392,8 @@ def resample_to_salsa(series):
     for salsa_lower, salsa_upper, salsa_bin_names in zip(salsa_boundaries[:-1], salsa_boundaries[1:], bin_names[:6]):
         for smps_lower, smps_upper, smps_num in zip(smps_boundaries[:-1], smps_boundaries[1:], series[:-1]):
 
-            salsa_width = salsa_upper - salsa_lower
-            smps_width = smps_upper - smps_lower
+            # salsa_width = salsa_upper - salsa_lower
+            # smps_width = smps_upper - smps_lower
             # Fully contained within salsa bounds
             if (smps_lower > salsa_lower) and (smps_upper < salsa_upper):
                 new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num
@@ -420,6 +453,12 @@ def filter_outliers(df):
         
     return df
 
+def smps_filter(df):
+    """Quick filter based on the 3 common rules for SMPS data"""
+    return df[(df["Status"] == "No errors") &
+              (df["Total Conc"] >= 1000) &
+              ~((df["datetime"].dt.day == 12) & (df["datetime"].dt.month == 7))]
+
 def get_directional_dist(smps_dataframe, weather_dataframe, min_angle = 202.5, max_angle = 337.5):
     """
     Just a quick function that wraps things together, to make importing the relevant distribution easier
@@ -442,7 +481,12 @@ def get_directional_dist(smps_dataframe, weather_dataframe, min_angle = 202.5, m
     smps_bins = smps_dataframe.filter(regex="^[.0-9]+$").columns
     
     merged_df = pd.merge_asof(smps_dataframe, weather_dataframe, on = "datetime", direction = "nearest")
-    merged_df = merged_df.drop(["time24"], axis = 1)
+    
+    try:
+        merged_df = merged_df.drop(["time24"], axis = 1)
+    except:
+        pass
+    
     merged_df = merged_df.dropna()
         
     directional_dist = merged_df[(merged_df["winddir_deg"] <= max_angle) &
@@ -461,59 +505,100 @@ def get_directional_dist(smps_dataframe, weather_dataframe, min_angle = 202.5, m
     
     return directional_dist, environmental_vars
     
+def show_methodology():
+    show_bin_difference(rivm_201)
+
 
 if __name__ == "__main__":
-    weather_df = read_measurement_data("Davis")
-    weather_df["Spec Hum"] = utils.RH2q(weather_df["In Hum"], weather_df["Bar"]*100, weather_df["Temp Out"] + 273.15)
-    plot_windrose(weather_df, "Wind Speed")
-    plot_windrose(weather_df[(weather_df["winddir_deg"] <= 337.5) & (weather_df["winddir_deg"] >= 202.5)],
-                  "Wind Speed")
+    davis_201 = read_measurement_data("Davis201", show_comments = False)
+    davis_201["Spec Hum"] = utils.RH2q(davis_201["Out Hum"], davis_201["Bar"]*100, davis_201["Temp Out"] + 273.15)
+    # plot_windrose(davis_201, "Wind Speed")
+    plot_windrose(davis_201, "Wind Speed", title = "Wind speed (N201)", min_angle = 202.5, max_angle = 270)
     
-    smps_df = read_measurement_data("SMPS")
-    smps_df = filter_outliers(smps_df)
-    stacked_timeseries_plot(smps_df[smps_df["Status"] == "No errors"])
+    davis_641 = read_measurement_data("Davis641", show_comments = False)
+    davis_641 = davis_641.rename(columns = {"Waarden": "Bar",
+					 "Waarden.1": "Rain minute",
+					 "Waarden.2": "Rain day",
+					 "Waarden.3": "Rain pulse",
+					 "Waarden.4": "In Hum",
+					 "Waarden.5": "Out Hum", 
+					 "Waarden.6": "Temp In", 
+					 "Waarden.7": "Temp Out", 
+					 "Waarden.8": "winddir_deg", 
+					 "Waarden.9": "Wind Speed"})
+    davis_641["Spec Hum"] = utils.RH2q(davis_641["Out Hum"], davis_641["Bar"]*100, davis_641["Temp Out"] + 273.15)
+    davis_641["datetime"] = pd.to_datetime(davis_641["Begintijd"], format = "%d-%m-%Y %H:%M")
+    # plot_windrose(davis_641, "Wind Speed")
+    plot_windrose(davis_641, "Wind Speed", title = "Wind speed (NL10641)", min_angle = 202.5, max_angle = 337.5)
     
-    nox_all = read_measurement_data("NOx", show_comments = False)
-    nox = nox_all["NL10641"]
+    rivm_201 = read_measurement_data("SMPS", show_comments = False)
+    # rivm_201 = filter_outliers(rivm_201)
+    rivm_201 = smps_filter(rivm_201)
+    stacked_timeseries_plot(rivm_201[rivm_201["Status"] == "No errors"])
+    
+    rivm_641 = read_measurement_data("RIVM", show_comments = False)
+    # rivm_641 = filter_outliers(rivm_641)
+    rivm_641 = smps_filter(rivm_641)
+    stacked_timeseries_plot(rivm_641[rivm_641["Status"] == "No errors"])
+    
+
+    show_methodology()
     
     salsa_bin_boundaries = define_bin_boundaries()
     salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
     salsa_bins_float = [float(binbound) for binbound in salsa_bins]
     salsa_upper_boundaries = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[1:8] * 1e9)
-    smps_bins = smps_df.filter(regex="^[.0-9]+$").columns
-    smps_bins_float = [7.] + [float(binbound) for binbound in smps_bins]
+    smps_bins = rivm_201.filter(regex="^[.0-9]+$").columns
+    smps_bins_float = [3.] + [float(binbound) for binbound in smps_bins]
     
-    show_bin_difference(smps_df)
-    
-    merged_df = pd.merge_asof(smps_df, weather_df, on = "datetime", direction = "nearest")
+    merged_df = pd.merge_asof(rivm_201, davis_201, on = "datetime", direction = "nearest")
     merged_df = merged_df.drop(["time24"], axis = 1)
     merged_df = merged_df.dropna()
     
-    # merged_df["winddir_deg"] = (merged_df["winddir_deg"] + 180 ) % 360 
-    nw_sw_dist, _ = get_directional_dist(smps_df, weather_df, min_angle = 202.5, max_angle = 337.5)
+    # Calculate directional distributions
+    highway_dist_201, _ = get_directional_dist(rivm_201, davis_201, min_angle = 202.5, max_angle = 270)
+    background_dist_201, _ = get_directional_dist(rivm_201, davis_201, min_angle = 90, max_angle = 180)
     
-    # nw_sw_resampled = resample_to_salsa(nw_sw_dist)
-    nw_sw_resampled = translate_particles(smps_bins_float, nw_sw_dist, salsa_bins_float)
+    highway_dist_641, _ = get_directional_dist(rivm_641, davis_641, min_angle = 202.5, max_angle = 337.5)
+    background_dist_641, _ = get_directional_dist(rivm_641, davis_641, min_angle = 45, max_angle = 135)
+    
+    highway_201_resampled = translate_particles(smps_bins_float, highway_dist_201, salsa_bins_float)
+    highway_641_resampled = translate_particles(smps_bins_float, highway_dist_641, salsa_bins_float)
+    
 
     # Show the various mean distribution of particles
-    channels = smps_df.filter(regex="^[.0-9]+$")
     
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
-    plot_data(nw_sw_dist, ax = axd["main"], label = "SSW - NNW", title="Mean size distribution")
-    # plot_data(channels.mean(), ax=axd["main"], label="All", title="Mean size distribution", linestyle = "dashed", alpha = 0.6)
-    # plot_data(channels[smps_df["Status"] != "No errors"].mean(), ax=axd["main"], label="No errors", linestyle = "dashed", alpha = 0.6)
-    # plot_data(channels[smps_df["Status"] == "No errors"].mean(), ax=axd["main"], label="Only errors", linestyle = "dashed", alpha = 0.6)
+    plot_data(highway_dist_201, ax = axd["main"], label = "W - SSW", title="Mean size distribution (N201)")
+    plot_data(background_dist_201, ax = axd["main"], label = "E-S")
+    plt.show()
+    
+    fig = plt.figure(layout="tight", figsize=(10, 6))
+    axd = fig.subplot_mosaic([["main"]])
+    plot_data(highway_dist_641, ax = axd["main"], label = "NNW - SSW", title="Mean size distribution (NL10641)")
+    plot_data(background_dist_641, ax = axd["main"], label = "NE-SE")
     plt.show()
     
     # Show the resampling of the nw_sw distribution
-    fig = plt.figure(layout="tight", figsize=(10, 6))
-    plt.plot(salsa_upper_boundaries, nw_sw_resampled.values[0], label = "SALSA2.0")
-    plt.plot(nw_sw_dist.index.astype(float), nw_sw_dist.values, label = "SMPS")
-    plt.legend()
-    plt.xlabel("Upper bin boundary (nm)")
-    plt.ylabel("# particles cm$^{-3}$")
-    plt.title("Resampled distribution")
+    fig = plt.figure(layout="tight", figsize=(16, 6))
+    fig.suptitle("Resampled distributions", x = 0.52)
+    fig.text(0.52, -0.02, "Upper bin boundary (nm)")
+
+    axd = fig.subplot_mosaic([["left", "right"]], sharey = True, sharex = True)
+    axd["right"].plot(salsa_upper_boundaries, highway_201_resampled.values[0], label = "SALSA2.0")
+    axd["right"].plot(highway_dist_201.index.astype(float), highway_dist_201.values, label = "SMPS")
+    
+    axd["right"].set_title("N201")
+    axd["right"].legend()
+
+    axd["left"].plot(salsa_upper_boundaries, highway_641_resampled.values[0], label = "SALSA2.0")
+    axd["left"].plot(highway_dist_641.index.astype(float), highway_dist_641.values, label = "SMPS")
+    highway_641_resampled.values[0][1] = 1760
+    axd["left"].plot(salsa_upper_boundaries, highway_641_resampled.values[0], label = "Corrected", color = "green")
+    axd["left"].set_ylabel("# particles cm$^{-3}$")
+    axd["left"].set_title("NL10641")
+    axd["left"].legend()
     plt.show()
     
     # Plot (immediate) correlations
@@ -526,4 +611,3 @@ if __name__ == "__main__":
     cmap = sb.diverging_palette(5, 250, as_cmap = True)
     sb.heatmap(corr, cmap = co.cm.balance_r, mask = np.triu(corr), center = 0)
 
-    # create_animated_plot(channels.iloc[0:500], fps = 50, window_size=100, save_path='SMPS_animation.gif')

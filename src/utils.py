@@ -5,6 +5,8 @@ Created on Fri Mar 22 10:20:12 2024
 @author: rens_
 """
 from colorsys import hsv_to_rgb, rgb_to_hsv
+from sklearn.metrics import mean_squared_error, r2_score
+from tqdm import tqdm
 
 import numpy as np
 
@@ -30,3 +32,20 @@ def complementary_color(r, g, b):
 
 def print_underlined(text):
     print('\033[4m' + text + '\033[0m')
+    
+def find_optimum(model_dist, measurement_dist):
+    """Calculates time of optimum rmse, r2 and corr between two distributions"""
+    corrs = []
+    rmses = []
+    rsquareds = []
+    for row in tqdm(range(len(model_dist)-1), desc = "Calculating optimum time..."):
+        rmse = mean_squared_error(model_dist[measurement_dist.columns].iloc[row], measurement_dist.iloc[0])
+        r2 = r2_score(measurement_dist.iloc[0], model_dist[measurement_dist.columns].iloc[row])
+        corr = np.corrcoef(model_dist[measurement_dist.columns].iloc[row], measurement_dist.iloc[0])[0,1]
+        rmses.append(rmse)
+        rsquareds.append(r2)
+        corrs.append(corr)
+
+    print(f"\nMin RMSE of {np.min(rmses):.2e} at time = {np.argmin(rmses)}s")
+    print(f"Max R2 of {np.max(rsquareds):.2f} at time = {np.argmax(rsquareds)}s")
+    print(f"Max correlation of {np.max(corrs):.2f} at time = {np.argmax(corrs)}s")

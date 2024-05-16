@@ -28,8 +28,9 @@ def plot_size_dist(
     rdry, num, rows=[0], populations=['a', 'b'],
     xmin=None, xmax=None,
     ymin=None, ymax=None,
-    fig=None, axes=None, linestyle="-",
+    fig=None, axes=None,
     exp_name="", title="", name_addition="",
+    **kwargs
 ):
     """
     Plots size distributions at various timesteps.
@@ -77,17 +78,21 @@ def plot_size_dist(
         fig, axes = plt.subplots(
             nrows=nrows,
             ncols=ncols,
-            figsize=(6*ncols, 4*nrows),
+            figsize=(9*ncols, 6*nrows),
             sharex=True,
             sharey=True,
             dpi = 75
         )
         
         plt.tight_layout()
-        fig.text(-0.01, 0.5, "# particles m$^{-3}$", va="center", rotation="vertical")
+        fig.text(-0.01, 0.5, "# particles cm$^{-3}$", va="center", rotation="vertical")
         fig.text(0.47, 0.04, "Diameter (m)", ha="center")
 
     if ncols > 1:
+        label = kwargs.get("label", "")
+        if label != "":
+            kwargs.pop("label")
+            
         for pop, ax in zip(populations, axes.ravel()):
             bins = [col for col in rdry.columns if pop in col]
             bins = [binName for binName in bins if binName in num.columns]
@@ -96,40 +101,47 @@ def plot_size_dist(
     
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
-    
-                ax.plot(r_row, N_row, linestyle = linestyle, label=f"{n} s")
+
+                ax.plot(r_row, N_row, label=f"{label + ' '}{n} s" if label == "" else f"{label}", **kwargs)
                 
             ax.set_title(f"Population {pop}")
-            ax.set_xscale('log')
-            ax.set_yscale('log')
+            # ax.set_xscale('log')
+            # ax.set_yscale('log')
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
             if pop == "b":
                 ax.legend(title="Time", bbox_to_anchor=(1.22, 1.02))
                 
+            if title != "":
+                fig.suptitle(title, y = 1, x = 0.47)
+                
     else:
+        label = kwargs.get("label", "placeholder")
+        if label != "placeholder":
+            kwargs.pop("label")
+            
         for pop in populations:
             ax = axes
             bins = [col for col in rdry.columns if pop in col]
             bins = [binName for binName in bins if binName in num.columns]
-    
+
             for n in rows:
     
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
     
-                ax.plot(r_row, N_row, linestyle = linestyle, label=f"Model {n} s" if linestyle=="-" else f"Measurement")
+                ax.plot(r_row, N_row, label=f"{label + ' '}{n} s" if label == "Model" else f"{label}", **kwargs)
                 
             ax.set_title(f"Population {pop}")
-            ax.set_xscale('log')
-            ax.set_yscale('log')
+            # ax.set_xscale('log')
+            # ax.set_yscale('log')
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
 
             ax.legend(title="Data", bbox_to_anchor=(1.01, 1.02))
                 
-    if title != "":
-        fig.suptitle(title, y = 1, x = 0.47)
+            if title != "":
+                fig.suptitle(title, y = 1, x = 0.52)
 
     if exp_name != "":
         figure_name = f"size_distribution_{name_addition}.png" if name_addition != "" else "size_distribution.png"

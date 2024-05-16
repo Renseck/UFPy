@@ -498,21 +498,20 @@ def find_keyword(keyword, directory_path=HAM_SRC_FOLDER):
 
     return results
 
-def q2RH(q, p, T):
-    T0 = 273.15
-    return 0.263*p*q / (np.exp((17.67*(T - T0)) / (T - 29.65)))
-
-def RH2q(RH, p, T):
-    T0 = 273.15
-    return RH * (np.exp((17.67*(T - T0)) / (T - 29.65))) / (0.263*p)
-
 if __name__ == '__main__':
     experiment_name = "test"
-    # run_model(experiment_name=experiment_name, recompile=True)
+    
+    environmental_data = [291, 0.0096788, 100901]
+    write_environmental_data([environmental_data]*6)
+    
+    run_model(experiment_name=experiment_name, recompile=True)
+    
     bin_boundaries = hp.define_bin_boundaries()
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
     num, metadata = read_model_data(experiment_name)
-    rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry.dat"), sep=r"\s+")
+    num5 = pd.read_csv(os.path.join(os.path.join(MODEL_L0_FOLDER, experiment_name), "num_5.dat"), sep = r"\s+")
+    metadata = parse_metadata(metadata)
+    rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry_orig.dat"), sep=r"\s+")
 
     # rdry has radii which are off by 2 orders of magnitudes, because SALSA works
     # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
@@ -520,7 +519,20 @@ if __name__ == '__main__':
 
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    hp.plot_size_dist(rdry, num, rows=[1, 200, 400], ymin=1, exp_name = experiment_name, title = "Size distribution")
-    hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
-    hp.stacked_timeseries_plot(num, populations = ["a", "b"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution")
+# =============================================================================
+#     hp.plot_size_dist(rdry, num, rows=[1, 200, 400], ymin=1, xmin = -20e-9, xmax = 400e-9,
+#                       exp_name = experiment_name, title = "Size distribution (cell 1)")
+#     hp.plot_size_dist(rdry, num5, rows=[401, 500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
+#                       exp_name = experiment_name, title = "Size distribution (cell 5)")
+# =============================================================================
+    
+    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1, 500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
+                      exp_name = experiment_name, title = "Size distribution (cell 1)", populations = ["a"],
+                      linestyle = "dashed", label = "Model")
+    hp.plot_size_dist(rdry, num5*1e-6, rows=[500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
+                      exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
+                      fig = fig, axes = axes, label = "Model")
+    # hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
+    hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
+    hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")
     # copy_model_data(experiment_name)
