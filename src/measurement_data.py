@@ -367,56 +367,7 @@ def show_bin_difference(smps_dataframe):
     plt.show()
     ###############################################
 
-def resample_to_salsa(series):
-    """
-    Resamples the SMPS dataseries (mean) into the bins of SALSA2.0.
-
-    Parameters
-    ----------
-    series : Pandas Series
-        Pandas Series of the mean NW-SW distribution.
-
-    Returns
-    -------
-    resampled : Pandas Series
-        Pandas Series of the resampled mean NW-SW distribution..
-
-    """
-    bin_boundaries = define_bin_boundaries()
-    bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
-    
-    salsa_boundaries = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[:8]  * 1e9)
-    smps_boundaries = np.append(np.array([7.0]), series.index.astype(float).values)
-    new_data = {}
-
-    for salsa_lower, salsa_upper, salsa_bin_names in zip(salsa_boundaries[:-1], salsa_boundaries[1:], bin_names[:6]):
-        for smps_lower, smps_upper, smps_num in zip(smps_boundaries[:-1], smps_boundaries[1:], series[:-1]):
-
-            # salsa_width = salsa_upper - salsa_lower
-            # smps_width = smps_upper - smps_lower
-            # Fully contained within salsa bounds
-            if (smps_lower > salsa_lower) and (smps_upper < salsa_upper):
-                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num
-
-            # Partially contained above
-            elif (smps_lower > salsa_lower) and (smps_upper > salsa_upper) and not (smps_lower > salsa_upper):
-                weight = (salsa_upper - smps_lower) / (smps_upper - smps_lower)
-                # weight /= (smps_width / salsa_width)
-                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
-
-            # Partially contained below
-            elif (smps_lower < salsa_lower) and (smps_upper < salsa_upper) and not (smps_upper < salsa_lower):
-                weight = (smps_upper - salsa_lower) / (smps_upper - smps_lower)
-                # weight /= (smps_width / salsa_width)
-                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0) + smps_num*weight
-
-            else:
-                new_data[salsa_bin_names] = new_data.get(salsa_bin_names, 0)
-                
-    resampled = pd.DataFrame.from_dict(new_data, orient = "index").transpose()
-    return resampled
-
-def translate_particles(original_bins, original_counts, new_bins):
+def translate_particles_orig(original_bins, original_counts, new_bins):
     # Calculate the area under the curve for the original counts
     new_bin_sizes = np.diff(new_bins)
     area_original = trapz(original_counts, x=original_bins[:-1])
@@ -440,9 +391,15 @@ def translate_particles(original_bins, original_counts, new_bins):
 
     # Scale the translated counts to match the total count
     translated_counts /= (area_original / area_translated)
-    test = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
+    output = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
 
-    return test
+    return output
+
+def translate_particles(original_bins, original_counts, new_bins):
+    translated_counts =  np.interp(new_bins, original_bins, original_counts)
+    output = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
+    
+    return output
 
 def filter_outliers(df):
     channels = df.filter(regex="^[.0-9]+$")
@@ -562,8 +519,8 @@ if __name__ == "__main__":
     highway_dist_641, _ = get_directional_dist(rivm_641, davis_641, min_angle = 202.5, max_angle = 337.5)
     background_dist_641, _ = get_directional_dist(rivm_641, davis_641, min_angle = 45, max_angle = 135)
     
-    highway_201_resampled = translate_particles(smps_bins_float, highway_dist_201, salsa_bins_float)
-    highway_641_resampled = translate_particles(smps_bins_float, highway_dist_641, salsa_bins_float)
+    highway_201_resampled = translate_particles(smps_bins_float[1:], highway_dist_201, salsa_bins_float[1:])
+    highway_641_resampled = translate_particles(smps_bins_float[1:], highway_dist_641, salsa_bins_float[1:])
     
 
     # Show the various mean distribution of particles
