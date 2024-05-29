@@ -473,7 +473,7 @@ def read_model_data(destination_folder):
 
 
 def find_keyword(keyword, directory_path=HAM_SRC_FOLDER):
-    # This function exists because I am sick and tired of looking through source files myself
+    """This function exists because I am sick and tired of looking through source files myself"""
     # Ensure the directory path is valid
     results = []
     if not os.path.exists(directory_path):
@@ -519,19 +519,14 @@ if __name__ == '__main__':
 
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-# =============================================================================
-#     hp.plot_size_dist(rdry, num, rows=[1, 200, 400], ymin=1, xmin = -20e-9, xmax = 400e-9,
-#                       exp_name = experiment_name, title = "Size distribution (cell 1)")
-#     hp.plot_size_dist(rdry, num5, rows=[401, 500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
-#                       exp_name = experiment_name, title = "Size distribution (cell 5)")
-# =============================================================================
-    
-    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1, 500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
+    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1, 100, 500], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 1)", populations = ["a"],
-                      linestyle = "dashed", label = "Model")
-    hp.plot_size_dist(rdry, num5*1e-6, rows=[500, 3000], ymin=1, xmin = -20e-9, xmax = 400e-9,
-                      exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
-                      fig = fig, axes = axes, label = "Model")
+                      linestyle = "solid", label = "Model")
+# =============================================================================
+#     hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 500], ymin=1, xmin = -20, xmax = 400,
+#                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
+#                       fig = fig, axes = axes, label = "Model")
+# =============================================================================
     # hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
     hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
     hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")

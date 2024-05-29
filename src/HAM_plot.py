@@ -86,7 +86,7 @@ def plot_size_dist(
         
         plt.tight_layout()
         fig.text(-0.01, 0.5, "# particles cm$^{-3}$", va="center", rotation="vertical")
-        fig.text(0.47, 0.04, "Diameter (m)", ha="center")
+        fig.text(0.47, -0.0, "Diameter (nm)", ha="center")
 
     if ncols > 1:
         label = kwargs.get("label", "")
@@ -102,7 +102,7 @@ def plot_size_dist(
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
 
-                ax.plot(r_row, N_row, label=f"{label + ' '}{n} s" if label == "" else f"{label}", **kwargs)
+                ax.plot(r_row*1e9, N_row, label=f"{label + ' '}{n} s" if label == "" else f"{label}", **kwargs)
                 
             ax.set_title(f"Population {pop}")
             # ax.set_xscale('log')
@@ -130,7 +130,7 @@ def plot_size_dist(
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
     
-                ax.plot(r_row, N_row, label=f"{label + ' '}{n} s" if label == "Model" else f"{label}", **kwargs)
+                ax.plot(r_row*1e9, N_row, label=f"{label + ' '}{n} s" if label == "Model" else f"{label}", **kwargs)
                 
             ax.set_title(f"Population {pop}")
             # ax.set_xscale('log')
@@ -138,7 +138,7 @@ def plot_size_dist(
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
 
-            ax.legend(title="Data", bbox_to_anchor=(1.01, 1.02))
+            ax.legend(title="Data", bbox_to_anchor=(0.99, 0.99))
                 
             if title != "":
                 fig.suptitle(title, y = 1, x = 0.52)
@@ -391,7 +391,8 @@ def stacked_timeseries_plot(
                     ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
                     ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
     
-            ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles[::-1], labels[::-1], title = "Bins", bbox_to_anchor = (1.0, 1.02))
             ax.set_title(f"Population {pop}")
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
@@ -420,7 +421,8 @@ def stacked_timeseries_plot(
                     ax.plot(num.index, num[col] + sum_so_far, color = colors[ind])
                     ax.fill_between(num.index, num[col] + sum_so_far, sum_so_far, color = colors[ind], label = label)
     
-            ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles[::-1], labels[::-1], title = "Bins", bbox_to_anchor = (1.0, 1.02))
             ax.set_title(f"Population {pop}")
             ax.set_xlim(left=xmin, right=xmax)
             ax.set_ylim(bottom=ymin, top=ymax)
@@ -433,7 +435,8 @@ def stacked_timeseries_plot(
     fontsize = 13
     fig.text(-0.01, 0.5, "# particles m$^{-3}$", va = "center", rotation = "vertical", fontsize = fontsize)
     ax.set_xlabel("Time (s)", fontsize = fontsize)
-    ax.legend(title = "Bins", bbox_to_anchor = (1.0, 1.02))  
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[::-1], labels[::-1], title = "Bins", bbox_to_anchor = (1.0, 1.02))
 
     if exp_name != "":
         figure_name = f"stacked_distribution_timeseries_{name_addition}.png" if name_addition != "" else "stacked_distribution_timeseries.png"
