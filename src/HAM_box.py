@@ -521,12 +521,10 @@ if __name__ == '__main__':
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
     fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1, 100, 500], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 1)", populations = ["a"],
-                      linestyle = "solid", label = "Model")
-# =============================================================================
-#     hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 500], ymin=1, xmin = -20, xmax = 400,
-#                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
-#                       fig = fig, axes = axes, label = "Model")
-# =============================================================================
+                      linestyle = "dashed", label = "Model")
+    hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 500], ymin=1, xmin = -20, xmax = 400,
+                      exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
+                      fig = fig, axes = axes, label = "Model")
     # hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
     hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
     hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")
