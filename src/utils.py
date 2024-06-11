@@ -49,3 +49,9 @@ def find_optimum(model_dist, measurement_dist):
     print(f"\nMin RMSE of {np.min(rmses):.2e} at time = {np.argmin(rmses)}s")
     print(f"Max R2 of {np.max(rsquareds):.2f} at time = {np.argmax(rsquareds)}s")
     print(f"Max correlation of {np.max(corrs):.2f} at time = {np.argmax(corrs)}s")
+    
+def lognormal(x, sigma, center_x, scale = 1):
+    """Returns **normalized** lognormal curve"""
+    prefactor = 1/(np.log(sigma)*np.sqrt(2*np.pi))
+    variable = np.exp((-np.log(x*(1/center_x))**2)/(2*np.log(sigma)**2))
+    return scale*prefactor*variable

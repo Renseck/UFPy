@@ -26,7 +26,7 @@ RESULTS_FOLDER = "../results"
 
 
 def plot_data(dataframe, ax=None, title="", label="",
-              xlabel="Bin boundary (nm)", ylabel="# particles m${^-3}$",
+              xlabel="Bin boundary (nm)", ylabel="# particles cm${^-3}$",
               linestyle = "solid", alpha = 1):
     """
     Generates a plot of whatever you throw into it, but makes it easy to put things into the same axes.

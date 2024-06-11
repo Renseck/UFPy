@@ -89,8 +89,8 @@ def plot_size_dist(
         fig.text(0.47, -0.0, "Diameter (nm)", ha="center")
 
     if ncols > 1:
-        label = kwargs.get("label", "")
-        if label != "":
+        label = kwargs.get("label", "placeholder")
+        if label != "placeholder":
             kwargs.pop("label")
             
         for pop, ax in zip(populations, axes.ravel()):
@@ -129,8 +129,12 @@ def plot_size_dist(
     
                 r_row = rdry.iloc[n][bins]
                 N_row = num.iloc[n][bins]
-    
-                ax.plot(r_row*1e9, N_row, label=f"{label + ' '}{n} s" if label == "Model" else f"{label}", **kwargs)
+                
+                if n == 1:
+                    label = "Model init"
+                    ax.plot(r_row*1e9, N_row, label=label, **kwargs)
+                else:
+                    ax.plot(r_row*1e9, N_row, label=f"{label + ' '}{n} s" if label == "Model" else f"{label}", **kwargs)
                 
             ax.set_title(f"Population {pop}")
             # ax.set_xscale('log')
@@ -349,6 +353,7 @@ def stacked_timeseries_plot(
     None.
 
     """
+    num = num*1e-6
     
     nrows = len(populations)
     ncols = 1
@@ -433,7 +438,7 @@ def stacked_timeseries_plot(
     plt.tight_layout()
     # y-label
     fontsize = 13
-    fig.text(-0.01, 0.5, "# particles m$^{-3}$", va = "center", rotation = "vertical", fontsize = fontsize)
+    fig.text(-0.01, 0.5, "# particles cm$^{-3}$", va = "center", rotation = "vertical", fontsize = fontsize)
     ax.set_xlabel("Time (s)", fontsize = fontsize)
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], title = "Bins", bbox_to_anchor = (1.0, 1.02))
@@ -447,6 +452,8 @@ def stacked_timeseries_plot(
 
         full_savepath = os.path.join(savepath, figure_name)
         plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
+        
+    return fig, axes
 
     
 

@@ -15,7 +15,7 @@ import os
 # from matplotlib import colors as mc
 # from scipy.interpolate import griddata
 import re
-# from itertools import product
+from itertools import product
 import shutil
 import subprocess
 
@@ -25,6 +25,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import HAM_plot as hp
+from utils import lognormal
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -120,19 +121,24 @@ def run_model(experiment_name, recompile=True, verbose=True):
         copy_model_data(experiment_name)
 
     except subprocess.CalledProcessError as e:
-        print(f"Error executing Linux command: {e}")
+        print(f"Error executing Linux command:\n{e}")
 
 
-def run_variation(variation_name, nested_environmental_values):
+def run_variation(variation_name, nested_environmental_values, particle_flux, dispersion_rate):
     """
     Execute multiple model runs, with varied environental values
 
     Parameters
     ----------
-    variation_name : String
+    variation_name : STRINMG
         Name of the "overarching" experiment.
     nested_environmental_values : List of list
         Nested list / matrix of environmental values.
+    particle_flux : LIST
+        Contains particle flux per bin.
+    dispersion_rate : FLOAT
+        Dispersion rate per timestep.
+        
 
     Returns
     -------
@@ -140,6 +146,17 @@ def run_variation(variation_name, nested_environmental_values):
 
     """
     defaults = [298, 0.0058535, 101325]
+    
+    if type(particle_flux) == type(None):
+        particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3]
+        
+    if type(dispersion_rate) == type(None):
+        dispersion_rate = 0.01
+        
+    write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
+            
+    meta = parse_metadata(read_model_metadata())
+    dimension = meta["kproma"]
 
     # Make the "parent" folder for the data to be written into
     if not os.path.exists(os.path.join(MODEL_L0_FOLDER, variation_name)):
@@ -147,7 +164,10 @@ def run_variation(variation_name, nested_environmental_values):
 
     with tqdm(total=len(nested_environmental_values), desc="Processing", leave=True, position=0) as pbar:
         for run, environmental_values in enumerate(nested_environmental_values):
-            write_environmental_data(environmental_values)
+            if dimension == 1:
+                write_environmental_data(environmental_values)
+            else:
+                write_environmental_data([environmental_values]*dimension)
             pt, pqm1, pap = environmental_values
 
             description =  f"Processing [{pt:.2f}, {pqm1:.3e}, {pap:.3e}]"
@@ -230,6 +250,31 @@ def write_environmental_data(environmental_vals):
     with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "w") as outfile:
         outfile.write(content)
 
+def write_particle_input_data(particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3, 0], dispersion_rate = 0.01):
+    """
+    Writes values to the particle_input.dat file **IN ORDER**
+    [input per bin (sep by space) per second]
+    [dispersion_rate]
+
+    Parameters
+    ----------
+    particle_flux : LIST, optional
+        Contains particle flux per bin. The default is [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3].
+    dispersion_rate : FLOAT, optional
+        Dispersion rate per timestep. The default is 0.01.
+
+    Returns
+    -------
+    None.
+
+    """
+    if particle_flux is None:
+        particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3, 0]
+    
+    content = " ".join(map(str, particle_flux)) + "\n" + str(dispersion_rate)
+    
+    with open(os.path.join(HAM_INPUT_FOLDER, "particle_input.dat"), "w") as outfile:
+        outfile.write(content)
 
 def read_environmental_data():
     """
@@ -247,8 +292,9 @@ def read_environmental_data():
     metadata = ""
 
     with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "r") as infile:
-        content = infile.read()
+        content = infile.readlines()
 
+    content = content[0].strip()
     environmental_vals = content.split(" ")
 
     for var, val in zip(environmental_vars, environmental_vals):
@@ -256,6 +302,30 @@ def read_environmental_data():
 
     return metadata
 
+def read_particle_input_data():
+    """
+    Reads the particle_input.dat file, to see which values have been used to run the model last.
+
+    Returns
+    -------
+    metadata : STRING
+        Formatted string of model environmental data.
+
+    """
+    particle_input_names = ["particle_flux", "dispersion_rate"]
+    metadata = ""
+    with open(os.path.join(HAM_INPUT_FOLDER, "particle_input.dat"), "r") as infile:
+        content = infile.read()
+        
+    particle_input_vals = content.split("\n")
+    
+    for var, val in zip(particle_input_names, particle_input_vals):
+        if var  == "particle_flux":
+            val = [float(value) for value in val.split(" ")]
+            
+        metadata += f"{var} = {val}\n"
+        
+    return metadata
 
 def read_model_metadata():
     """
@@ -297,6 +367,7 @@ def read_model_metadata():
 
     # Read environmental variables from .dat file, because we can't retrieve those with regex
     metadata += read_environmental_data()
+    metadata += read_particle_input_data()
 
     return metadata
 
@@ -412,7 +483,7 @@ def copy_model_data(destination_folder):
         shutil.copy(os.path.join(HAM_DATA_FOLDER, data_file), full_destination_path)
 
 
-def read_model_data(destination_folder):
+def read_model_data(destination_folder, gridcell = 1):
     """
     Reads the num.dat file within the destination_folder.
 
@@ -420,6 +491,8 @@ def read_model_data(destination_folder):
     ----------
     destination_folder : STR
         Name of the folder in results/ to be read from.
+    gridcell : INT
+        Index of gridcells whose data to read. Default is 1.
 
     Returns
     -------
@@ -436,6 +509,11 @@ def read_model_data(destination_folder):
     # First check if this folder has subfolders - if yes, it's data from a variation experiment
     has_subfolders = any(os.path.isdir(os.path.join(full_destination_path, item))
                          for item in os.listdir(full_destination_path))
+    
+    if gridcell == 1:
+        num_file = "num.dat" 
+    elif gridcell > 1:
+        num_file = f"num_{gridcell}.dat"
 
     # Check if the folder exist. If not, boot out immediately. Otherwise, read out the data.
     if not os.path.exists(full_destination_path):
@@ -445,7 +523,7 @@ def read_model_data(destination_folder):
     else:
         # If it doesnt have subfolders, just read the data as normal:
         if has_subfolders == False:
-            num = pd.read_csv(os.path.join(full_destination_path, "num.dat"),  sep=r"\s+")
+            num = pd.read_csv(os.path.join(full_destination_path, num_file),  sep=r"\s+")
             try:
                 with open(os.path.join(full_destination_path, "metadata.txt"), "r") as metafile:
                     metadata = metafile.read()
@@ -467,7 +545,7 @@ def read_model_data(destination_folder):
                     metadata = metafile.read()
 
                 metadict[str(subfolder)] = metadata
-                numdict[str(subfolder)] = pd.read_csv(os.path.join(full_subfolder_path, "num.dat"), sep=r"\s+")
+                numdict[str(subfolder)] = pd.read_csv(os.path.join(full_subfolder_path, num_file), sep=r"\s+")
 
             return numdict, metadict
 
@@ -504,12 +582,27 @@ if __name__ == '__main__':
     environmental_data = [291, 0.0096788, 100901]
     write_environmental_data([environmental_data]*6)
     
-    run_model(experiment_name=experiment_name, recompile=True)
+    x = np.linspace(10, 600, 1000)
+    sigma = 1.68
+    scale = 17e6
     
     bin_boundaries = hp.define_bin_boundaries()
+    salsa_bins = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[0:8] * 1e9)
+    salsa_bins_float = [float(binbound) for binbound in salsa_bins]
+    salsa_upper_boundaries = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[1:8] * 1e9)
+    
+    y = lognormal(x, sigma, center_x = 90, scale = scale)
+    diesel_flux = np.interp(salsa_bins[:-1], x, y)
+    particle_flux = diesel_flux
+    # particle_flux = 2*np.array([6e5, 7e5, 7.5e5, 5e6, 7e6, 0])
+    dispersion_rate = 0.012
+    write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
+    
+    run_model(experiment_name=experiment_name, recompile=True)
+    
     bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
-    num, metadata = read_model_data(experiment_name)
-    num5 = pd.read_csv(os.path.join(os.path.join(MODEL_L0_FOLDER, experiment_name), "num_5.dat"), sep = r"\s+")
+    num, metadata = read_model_data(experiment_name, gridcell = 1)
+    num5, _ = read_model_data(experiment_name, gridcell = 5)
     metadata = parse_metadata(metadata)
     rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry_orig.dat"), sep=r"\s+")
 
@@ -519,10 +612,10 @@ if __name__ == '__main__':
 
     # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
     # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1, 100, 500], ymin=1, xmin = -20, xmax = 400,
-                      exp_name = experiment_name, title = "Size distribution (cell 1)", populations = ["a"],
+    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1], ymin=1, xmin = -20, xmax = 400,
+                      exp_name = experiment_name, title = "Size distribution", populations = ["a"],
                       linestyle = "dashed", label = "Model")
-    hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 500], ymin=1, xmin = -20, xmax = 400,
+    hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 600, 3000], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
                       fig = fig, axes = axes, label = "Model")
     # hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
