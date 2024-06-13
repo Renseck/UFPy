@@ -396,8 +396,10 @@ def translate_particles_orig(original_bins, original_counts, new_bins):
     return output
 
 def translate_particles(original_bins, original_counts, new_bins):
+    columns = ['1a1', '1a2', '1a3', '2a1', '2a2', '2a3', '2a4', '2a5', '2a6', '2a7',
+           '2b1', '2b2', '2b3', '2b4', '2b5', '2b6', '2b7']
     translated_counts =  np.interp(new_bins, original_bins, original_counts)
-    output = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
+    output = pd.DataFrame(data = [translated_counts], columns = columns[:len(new_bins)])
     
     return output
 
@@ -508,9 +510,12 @@ if __name__ == "__main__":
     smps_bins = rivm_201.filter(regex="^[.0-9]+$").columns
     smps_bins_float = [3.] + [float(binbound) for binbound in smps_bins]
     
-    merged_df = pd.merge_asof(rivm_201, davis_201, on = "datetime", direction = "nearest")
-    merged_df = merged_df.drop(["time24"], axis = 1)
-    merged_df = merged_df.dropna()
+    merged_201_df = pd.merge_asof(rivm_201, davis_201, on = "datetime", direction = "nearest")
+    merged_201_df = merged_201_df.drop(["time24"], axis = 1)
+    merged_201_df = merged_201_df.dropna()
+    
+    merged_641_df = pd.merge_asof(rivm_641, davis_641, on = "datetime", direction = "nearest")
+    merged_641_df = merged_641_df.dropna()
     
     # Calculate directional distributions
     highway_dist_201, _ = get_directional_dist(rivm_201, davis_201, min_angle = 202.5, max_angle = 270)
@@ -529,12 +534,14 @@ if __name__ == "__main__":
     axd = fig.subplot_mosaic([["main"]])
     plot_data(highway_dist_201, ax = axd["main"], label = "W - SSW", title="Mean size distribution (N201)")
     plot_data(background_dist_201, ax = axd["main"], label = "E-S")
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N201_Dist.jpg"), dpi = 150)
     plt.show()
     
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
     plot_data(highway_dist_641, ax = axd["main"], label = "NNW - SSW", title="Mean size distribution (NL10641)")
     plot_data(background_dist_641, ax = axd["main"], label = "NE-SE")
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N641_Dist.jpg"), dpi = 150)
     plt.show()
     
     # Show the resampling of the nw_sw distribution
@@ -559,12 +566,29 @@ if __name__ == "__main__":
     plt.show()
     
     # Plot (immediate) correlations
+    column_order = ['11.5', '15.4', '20.5', '27.4', '36.5', '48.7', '64.9',
+                    '86.6', '115.5','154.0', '205.4', '273.8', '365.2',
+                    'winddir_deg', 'Wind Speed', 'Out Hum', 'Temp Out','Spec Hum']
+    
     plt.figure(figsize = (10,6))
-    plt.title("Correlations")
-    corr = merged_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Rain|Status").\
-           drop(["Wind Dir", "Wind Tx"], axis = 1).query("Status == 'No errors'").\
-           drop(["Status"], axis = 1).corr()
+    plt.title("Correlations N201")
+    corr_201 = merged_201_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Status").\
+           drop(["Wind Dir", "Wind Tx", "Wind Samp", "Wind Chill", "Wind Run",
+                 "In  Temp", "Hi Temp", "Low Temp", "In Hum"], axis = 1).query("Status == 'No errors'").\
+           drop(["Status"], axis = 1).reindex(columns = column_order).corr()
            
-    cmap = sb.diverging_palette(5, 250, as_cmap = True)
-    sb.heatmap(corr, cmap = co.cm.balance_r, mask = np.triu(corr), center = 0)
+    cmap = sb.diverging_palette(-1, 1, as_cmap = True)
+    sb.heatmap(corr_201, cmap = co.cm.balance_r, mask = np.triu(corr_201), center = 0)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/measurment_correlations_N201.jpg"), dpi = 150)
 
+    # Plot (immediate) correlations
+    plt.figure(figsize = (10,6))
+    plt.title("Correlations NL10641")
+    corr_641 = merged_641_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Status").\
+           drop([col for col in merged_641_df.columns if "Status " in col], axis = 1).query("Status == 'No errors'").\
+           drop(["Status", "In Hum", "Temp In"], axis = 1).reindex(columns = column_order).corr()
+           
+           
+    cmap = sb.diverging_palette(-1, 1, as_cmap = True)
+    sb.heatmap(corr_641, cmap = co.cm.balance_r, mask = np.triu(corr_641), center = 0)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/measurment_correlations_N641.jpg"), dpi = 150)

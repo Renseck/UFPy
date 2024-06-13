@@ -11,7 +11,7 @@
 
 import json
 import os
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 # from matplotlib import colors as mc
 # from scipy.interpolate import griddata
 import re
@@ -34,7 +34,7 @@ HAM_SRC_FOLDER = os.path.join(HAM_BASE_FOLDER, "src\\src_HAM\\")
 RESULTS_FOLDER = "../results"
 MODEL_L0_FOLDER = os.path.join(RESULTS_FOLDER, "Model L0")
 MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
-
+smps_bins_float = [3.0, 11.5, 15.4, 20.5, 27.4, 36.5, 48.7, 64.9, 86.6, 115.5, 154.0, 205.4, 273.8, 365.2]
 
 def read_input(filename):
     # maybe pointless/deprecated function
@@ -587,13 +587,12 @@ if __name__ == '__main__':
     scale = 17e6
     
     bin_boundaries = hp.define_bin_boundaries()
-    salsa_bins = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[0:8] * 1e9)
-    salsa_bins_float = [float(binbound) for binbound in salsa_bins]
-    salsa_upper_boundaries = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[1:8] * 1e9)
+    salsa_bins = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[0:10] * 1e9)
     
     y = lognormal(x, sigma, center_x = 90, scale = scale)
-    diesel_flux = np.interp(salsa_bins[:-1], x, y)
-    particle_flux = diesel_flux
+    diesel_flux = np.interp(salsa_bins, x, y)
+    additional_flux = np.array([2e6, 3e6, 3e6, 0, 0, 0, 0, 0, 0])
+    particle_flux = diesel_flux + additional_flux
     # particle_flux = 2*np.array([6e5, 7e5, 7.5e5, 5e6, 7e6, 0])
     dispersion_rate = 0.012
     write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
@@ -615,10 +614,23 @@ if __name__ == '__main__':
     fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution", populations = ["a"],
                       linestyle = "dashed", label = "Model")
-    hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 600, 3000], ymin=1, xmin = -20, xmax = 400,
+    
+    smps_close = [1669, 1981, 816, 882, 1165, 1360, 1455, 1408, 1069, 507, 11, 0, 0]
+    smps_far = [474, 634, 431, 711, 1063, 1345, 1479, 1401, 1031, 482, 9, 0, 0]
+    
+    fig, axes = hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 600, 1500], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
                       fig = fig, axes = axes, label = "Model")
-    # hp.plot_size_dist_evolution(rdry, num, vmin=1, exp_name = experiment_name, title = "Size distribution evolution")
-    hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
-    hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")
+    
+    axes.plot(smps_bins_float[1:], smps_close, label = "60m", linestyle = "-.")
+    axes.plot(smps_bins_float[1:], smps_far, label = "400m", linestyle = "-.")
+    axes.legend()
+    plt.show()
+    
+    # hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
+    fig, axes = hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")
+    axes.vlines([600], 0, (num5*1e-6).max().sum(), linestyle = "dashed", color = "green")
+    axes.vlines([1500], 0, (num5*1e-6).max().sum(), linestyle = "dashed", color = "red")
     # copy_model_data(experiment_name)
+    
+    

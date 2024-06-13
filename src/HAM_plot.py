@@ -192,6 +192,7 @@ def plot_size_dist_evolution(
         xmin=None, xmax=None,
         ymin=None, ymax=None,
         vmin=None, vmax=None,
+        fig=None, axes=None,
         exp_name="", title="", name_addition=""):
     """
 
@@ -236,13 +237,15 @@ def plot_size_dist_evolution(
     nrows = len(populations)
     ncols = 1
 
-    fig, axes = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=(12*ncols, 4*nrows),
-        sharex=True,
-        sharey=True,
-    )
+    if fig == None and axes == None:
+        fig, axes = plt.subplots(
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(9*ncols, 6*nrows),
+            sharex=True,
+            sharey=True,
+            dpi = 75
+        )
 
     # computing common color bar bounds:
     vmin = num.values.min() if vmin is None else vmin
@@ -623,6 +626,8 @@ def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", ti
         ax.set_xlabel("Temperature (K)")
         ax.set_ylabel("q $(\\frac{kg}{kg})$ $\\times 10^{-3}$")
         constant_title = f"p = {environmental_df[2].iloc[0]:.3e} Pa"
+    
+    # num_grid = num_grid*1e-6  # Convert from #/m^-3 to #/cm^-3
 
     max_order = order_of_magnitude(np.abs(num_grid).max())
 
