@@ -5,8 +5,6 @@
 # Investigation of the source code (driver.f90) seems to indicate that number concentration are
 # currently written to output in num.dat.
 #
-# The functions plot_size_dist, define_bin_boundaries, plot_size_dist_evolution were part of the original script, and
-# only slightly modified by me (Rens van Eck, BSc). The other functions were written by me.
 # =============================================================================
 
 import json
@@ -25,7 +23,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import HAM_plot as hp
-from utils import lognormal
+from utils import lognormal, parse_metadata
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
@@ -34,51 +32,10 @@ HAM_SRC_FOLDER = os.path.join(HAM_BASE_FOLDER, "src\\src_HAM\\")
 RESULTS_FOLDER = "../results"
 MODEL_L0_FOLDER = os.path.join(RESULTS_FOLDER, "Model L0")
 MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
+
 smps_bins_float = [3.0, 11.5, 15.4, 20.5, 27.4, 36.5, 48.7, 64.9, 86.6, 115.5, 154.0, 205.4, 273.8, 365.2]
-
-def read_input(filename):
-    # maybe pointless/deprecated function
-    if filename in ["orig", "original"]:
-        dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"))
-
-    elif filename in ["kappa"]:
-        dataset = nc.Dataset(os.path.join(HAM_BASE_FOLDER, "lut_kappa.nc"))
-
-    # This bit is for safekeeping the original input files, just incase that ends up being necessary
-    # I'm just going to put a copy of it in the /data/backup folder, idc if it's bad practice
-    if not os.path.exists(os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc")):
-        shutil.copy(os.path.join(HAM_INPUT_FOLDER, "HAM_box_inp_200007.01_activ.nc"),
-                    os.path.join("../data/Backup", "HAM_box_inp_200007.01_activ.nc"))
-    if not os.path.exists(os.path.join("../data/Backup", "lut_kappa.nc")):
-        shutil.copy(os.path.join(HAM_BASE_FOLDER, "lut_kappa.nc"), os.path.join("../data/Backup", "lut_kappa.nc"))
-
-    return dataset
-
-
-def edit_input(original_dataset, new_filename):
-    # maybe pointless function
-    # This will probably also require us to delete the original input file, but I'm foregoing that for the moment.
-
-    edited_dataset = nc.Dataset(os.path.join(HAM_INPUT_FOLDER, new_filename), "w", format="NETCDF4")
-
-    # Copy dimensions from the original to the edited dataset
-    for dim_name, dim_obj in original_dataset.dimensions.items():
-        edited_dataset.createDimension(dim_name, len(dim_obj))
-
-    # Copy variables and their attributes from the original to the edited dataset
-    for var_name, var_obj in original_dataset.variables.items():
-        edited_var = edited_dataset.createVariable(var_name, var_obj.dtype, var_obj.dimensions)
-        edited_var[:] = var_obj[:]  # Copy variable values
-        for attr_name in var_obj.ncattrs():
-            edited_var.setncattr(attr_name, var_obj.getncattr(attr_name))  # Copy variable attributes
-
-    # Modify the values of a variable in the edited dataset
-    # This bit is going to include some Latin Hypercube Sampling (LHS) method to explore parameter space,
-    # Which will involve rewriting every variable one-by-one.
-    edited_dataset.variables['your_variable'][:] = np.ones_like(edited_dataset.variables['your_variable'][:]) * 42
-
-    return edited_dataset
-
+smps_close = [1669, 1981, 816, 882, 1165, 1360, 1455, 1408, 1069, 507, 11, 0, 0]
+smps_far = [474, 634, 431, 711, 1063, 1345, 1479, 1401, 1031, 482, 9, 0, 0]
 
 def run_model(experiment_name, recompile=True, verbose=True):
     """
@@ -133,12 +90,11 @@ def run_variation(variation_name, nested_environmental_values, particle_flux, di
     variation_name : STRINMG
         Name of the "overarching" experiment.
     nested_environmental_values : List of list
-        Nested list / matrix of environmental values.
+        (Nested) list / matrix of environmental values.
     particle_flux : LIST
-        Contains particle flux per bin.
+        (Nested) list / matrix of particle fluxes.
     dispersion_rate : FLOAT
-        Dispersion rate per timestep.
-        
+        (Nested) Dispersion rate per timestep.
 
     Returns
     -------
@@ -147,13 +103,14 @@ def run_variation(variation_name, nested_environmental_values, particle_flux, di
     """
     defaults = [298, 0.0058535, 101325]
     
+    # If no flux input is given
     if type(particle_flux) == type(None):
-        particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3]
+        particle_flux = [1664.5948668000997, 1664.5948668000997, 173524.05010339778,
+                         6880411.6196088055, 12947338.526942546, 4834694.831920029,
+                         358238.33226261917, 16317.238454753566, 16317.238454753566]
         
     if type(dispersion_rate) == type(None):
         dispersion_rate = 0.01
-        
-    write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
             
     meta = parse_metadata(read_model_metadata())
     dimension = meta["kproma"]
@@ -161,28 +118,71 @@ def run_variation(variation_name, nested_environmental_values, particle_flux, di
     # Make the "parent" folder for the data to be written into
     if not os.path.exists(os.path.join(MODEL_L0_FOLDER, variation_name)):
         os.mkdir(os.path.join(MODEL_L0_FOLDER, variation_name))
+        
+    env_is_nested = any(isinstance(el, list) for el in nested_environmental_values)
+    flux_is_nested = any(isinstance(el, list) for el in particle_flux)
 
-    with tqdm(total=len(nested_environmental_values), desc="Processing", leave=True, position=0) as pbar:
-        for run, environmental_values in enumerate(nested_environmental_values):
-            if dimension == 1:
-                write_environmental_data(environmental_values)
-            else:
-                write_environmental_data([environmental_values]*dimension)
-            pt, pqm1, pap = environmental_values
-
-            description =  f"Processing [{pt:.2f}, {pqm1:.3e}, {pap:.3e}]"
-            description = description.ljust(45, " ")
-            pbar.set_description(desc = description)
-            experiment_name = os.path.join(variation_name, str(run))
-            # Recompile on the first (zeroth) run just in case
-            if run == 0:
-                run_model(experiment_name, recompile=True, verbose=False)
-            else:
-                run_model(experiment_name, recompile=False, verbose=False)
-
-            pbar.update(1)
-    # After the loop, reset to defaults
-    write_environmental_data(defaults)
+    # Environmental variation
+    if env_is_nested and not flux_is_nested:
+        print("Starting environmental variation")
+        write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
+        
+        with tqdm(total=len(nested_environmental_values), desc="Processing", leave=True, position=0) as pbar:
+            for run, environmental_values in enumerate(nested_environmental_values):
+                if dimension == 1:
+                    write_environmental_data(environmental_values)
+                else:
+                    write_environmental_data([environmental_values]*dimension)
+                pt, pqm1, pap = environmental_values
+    
+                description =  f"Processing [{pt:.2f}, {pqm1:.3e}, {pap:.3e}]"
+                description = description.ljust(45, " ")
+                pbar.set_description(desc = description)
+                experiment_name = os.path.join(variation_name, str(run))
+                
+                # Recompile on the first (zeroth) run just in case
+                if run == 0:
+                    run_model(experiment_name, recompile=True, verbose=False)
+                else:
+                    run_model(experiment_name, recompile=False, verbose=False)
+    
+                pbar.update(1)
+            
+    
+    # Flux/dispersion variation
+    elif flux_is_nested and not env_is_nested:
+        print("Starting flux/dispersion variation")
+        if dimension == 1:
+            write_environmental_data(nested_environmental_values)
+        else:
+            write_environmental_data([nested_environmental_values]*dimension)
+        
+        # Create a "grid" of particle flux and dispersion rate values
+        combinations = list(product(particle_flux, dispersion_rate))
+        
+        with tqdm(total = len(combinations), desc = "Processing", leave = True, position = 0) as pbar:
+            for run, combination in enumerate(combinations):
+                flux, dispersion = combination
+                write_particle_input_data(particle_flux = flux, dispersion_rate = dispersion)
+                
+                flux_print = [float(f"{x:.2f}") for x in flux[0:2]]
+                description = f"Processing [{flux_print} {dispersion}]"
+                description = description.ljust(45, " ")
+                pbar.set_description(desc = description)
+                experiment_name = os.path.join(variation_name, str(run))
+                
+                # Recompile on the first (zeroth) run just in case
+                if run == 0:
+                    run_model(experiment_name, recompile=True, verbose=False)
+                else:
+                    run_model(experiment_name, recompile=False, verbose=False)
+    
+                pbar.update(1)
+    
+    # If both are nested, just throw an error and let the user think about what they've done
+    elif flux_is_nested and env_is_nested:
+        print("Can't specify variation for both environmental variables and flux/dispersion. Please revise")
+        
 
 
 def gen_params():
@@ -250,7 +250,7 @@ def write_environmental_data(environmental_vals):
     with open(os.path.join(HAM_INPUT_FOLDER, "environmental.dat"), "w") as outfile:
         outfile.write(content)
 
-def write_particle_input_data(particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3, 0], dispersion_rate = 0.01):
+def write_particle_input_data(particle_flux = [4e6, 6e6, 3.6e6, 1.8e5, 3.8e4, 4e3, 0, 0, 0], dispersion_rate = 0.01):
     """
     Writes values to the particle_input.dat file **IN ORDER**
     [input per bin (sep by space) per second]
@@ -419,36 +419,6 @@ def check_metadata():
 
     return metadict
 
-def parse_metadata(metadata):
-    """
-    Parse metadata string to dictionary for easier variable reading
-
-    Parameters
-    ----------
-    metadata : STR
-        String of metadata as outputted by read_model_metadata.
-
-    Returns
-    -------
-    parsed : DICT
-        Dictionary of metadata.
-
-    """
-    parsed = {}
-    for line in metadata.split("\n"):
-        if "=" in line:
-            name, value = line.split("=")
-            try:
-                parsed[name.strip()] = float(value)
-                if name.strip() not in ["pt", "pqm1", "pap"]:
-                    parsed[name.strip()] = int(value)
-            except:
-                parsed[name.strip()] = value.strip()
-        else:
-            break
-            
-    return parsed
-
 def copy_model_data(destination_folder):
     """
     Copies model output to the destination folder.
@@ -535,7 +505,7 @@ def read_model_data(destination_folder, gridcell = 1):
 
         # Otherwise if it does, read every single subfolder's data, and put every dataframe into a dictionary
         else:
-            subfolders = os.listdir(full_destination_path)
+            subfolders = sorted(os.listdir(full_destination_path), key = float)
             full_subfolder_paths = [os.path.join(full_destination_path, subfolder) for subfolder in subfolders]
 
             numdict = {}
@@ -577,29 +547,31 @@ def find_keyword(keyword, directory_path=HAM_SRC_FOLDER):
     return results
 
 if __name__ == '__main__':
-    experiment_name = "test"
+    experiment_name = "gasoline_emissions_with_background_test"
     
-    environmental_data = [291, 0.0096788, 100901]
+    environmental_data = [293, 0.0096610, 99890]
     write_environmental_data([environmental_data]*6)
     
-    x = np.linspace(10, 600, 1000)
-    sigma = 1.68
-    scale = 17e6
+    x = np.linspace(10, 1000, 10000)
+    sigma = 1.7
+    scale = 8e6
     
     bin_boundaries = hp.define_bin_boundaries()
     salsa_bins = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[0:10] * 1e9)
     
-    y = lognormal(x, sigma, center_x = 90, scale = scale)
-    diesel_flux = np.interp(salsa_bins, x, y)
-    additional_flux = np.array([2e6, 3e6, 3e6, 0, 0, 0, 0, 0, 0])
-    particle_flux = diesel_flux + additional_flux
+    main_lognormal = lognormal(x, sigma, center_x = 20, scale = scale)
+    main_flux = np.interp(salsa_bins, x, main_lognormal)
+    
+    # secondary_flux = np.interp(salsa_bins, smps_bins_float[1:], smps_far)
+    secondary_flux = np.array([0., 0., 0., 1355., 1271., 177., 0., .0, 0.])
+
+    particle_flux = main_flux + 3000*secondary_flux
     # particle_flux = 2*np.array([6e5, 7e5, 7.5e5, 5e6, 7e6, 0])
     dispersion_rate = 0.012
-    write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
+    write_particle_input_data(particle_flux = 2*particle_flux, dispersion_rate = dispersion_rate)
     
     run_model(experiment_name=experiment_name, recompile=True)
-    
-    bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
+
     num, metadata = read_model_data(experiment_name, gridcell = 1)
     num5, _ = read_model_data(experiment_name, gridcell = 5)
     metadata = parse_metadata(metadata)
@@ -615,22 +587,25 @@ if __name__ == '__main__':
                       exp_name = experiment_name, title = "Size distribution", populations = ["a"],
                       linestyle = "dashed", label = "Model")
     
-    smps_close = [1669, 1981, 816, 882, 1165, 1360, 1455, 1408, 1069, 507, 11, 0, 0]
-    smps_far = [474, 634, 431, 711, 1063, 1345, 1479, 1401, 1031, 482, 9, 0, 0]
-    
+
     fig, axes = hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 600, 1500], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
                       fig = fig, axes = axes, label = "Model")
     
-    axes.plot(smps_bins_float[1:], smps_close, label = "60m", linestyle = "-.")
-    axes.plot(smps_bins_float[1:], smps_far, label = "400m", linestyle = "-.")
+    # axes.plot(smps_bins_float[1:], smps_close, label = "60m", linestyle = "-.")
+    axes.plot(smps_bins_float[1:], smps_far, label = "Measurement (320m)", linestyle = "-.")
     axes.legend()
+    fig_name = "size_distribution.png"
+    savepath = os.path.join(MODEL_PLOT_FOLDER, experiment_name)
+    full_savepath = os.path.join(savepath, fig_name)
+    plt.savefig(full_savepath, bbox_inches = "tight", dpi = 150)
     plt.show()
     
-    # hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
-    fig, axes = hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 5)")
-    axes.vlines([600], 0, (num5*1e-6).max().sum(), linestyle = "dashed", color = "green")
-    axes.vlines([1500], 0, (num5*1e-6).max().sum(), linestyle = "dashed", color = "red")
+    hp.stacked_timeseries_plot(num, populations = ["a"], ymin = 1, exp_name = experiment_name, title = "Size distribution evolution (cell 1)")
+    fig, axes = hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name,
+                                           title = "Size distribution evolution (cell 5)",
+                                           highlights = [600, 1500], highlight_colors = ["green", "red"])
+
     # copy_model_data(experiment_name)
     
     

@@ -17,16 +17,21 @@ from scipy.integrate import trapz
 from windrose import WindroseAxes
 
 import utils
-from HAM_plot import define_bin_boundaries
+from HAM_plot import define_bin_boundaries, show_model_lognormal_flux
 from utils import complementary_color, order_of_magnitude
 
 DATA_FOLDER = "../data"
 MEASUREMENTS_FOLDER = os.path.join(DATA_FOLDER, "Measurements")
 RESULTS_FOLDER = "../results"
 
+smps_bins = [11.5, 15.4, 20.5, 27.4, 36.5, 48.7, 64.9, 86.6, 115.5, 154.0, 205.4, 273.8, 365.2]
+smps_60m = [1669, 1981,	816, 882, 1165, 1360, 1455, 1408, 1069, 507, 11, 0, 0]
+smps_320m = [418, 622,	429, 658, 990, 1292, 1455, 1391, 1026, 481, 13, 0, 0]
+smps_200m = [474, 634,	431, 711, 1063, 1345, 1479, 1401, 1031, 482, 9, 0, 0]
+smps_220m = [566, 851,	526, 673, 975, 1287, 1484, 1445, 1073, 498, 7, 0, 0]
 
 def plot_data(dataframe, ax=None, title="", label="",
-              xlabel="Bin boundary (nm)", ylabel="# particles cm${^-3}$",
+              xlabel="Diameter (nm)", ylabel="# particles cm${^-3}$",
               linestyle = "solid", alpha = 1):
     """
     Generates a plot of whatever you throw into it, but makes it easy to put things into the same axes.
@@ -56,18 +61,20 @@ def plot_data(dataframe, ax=None, title="", label="",
         fig, ax = plt.subplots(figsize=(10, 6))
 
     if not ax.get_title():  # If there is no title yet, set one.
-        ax.set_title(title)
+        ax.set_title(title, fontsize = 15)
     else:
         if title:
-            ax.set_title(title)  # If title is given, override current
+            ax.set_title(title, fontsize = 15)  # If title is given, override current
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel, fontsize = 15)
+    ax.set_ylabel(ylabel, fontsize = 15)
 
     dataframe.plot(ax=ax, label=label, linestyle = linestyle, alpha = alpha)
 
     if label:
-        ax.legend()
+        ax.legend(fontsize = 14)
+
+    ax.tick_params(axis = "both", labelsize = 12)    
 
     return ax
 
@@ -205,39 +212,6 @@ def plot_windrose(df, feature, title = "Figure Title", max_order = None, min_ang
     else:
         ax.set_title(feature)
     
-    
-
-def create_animated_plot(df, window_size=100, fps=24, save_path='animation.gif'):
-    fig, ax = plt.subplots()
-
-    vmin = df.min().min()
-    vmax = df.max().max()
-
-    def update(frame):
-        ax.clear()
-        start_index = frame
-        end_index = start_index + window_size
-        data_slice = df.iloc[start_index:end_index, :]
-        im = ax.imshow(data_slice.values.T, cmap='plasma', aspect='auto',
-                       vmin=vmin, vmax=vmax, interpolation="none")
-        plt.gca().invert_yaxis()
-        ax.set_title(f'Frame: {frame}')
-
-        ax.set_yticks(range(len(data_slice.columns)))
-        ax.set_yticklabels(data_slice.columns)
-        ax.set_ylabel("Bin boundary [nm]")
-
-        return im
-
-    cbar = plt.colorbar(update(0), ax=ax)
-    cbar.set_label("[#particles m${^-3}$]")
-
-    num_frames = len(df) - window_size + 1
-    animation = FuncAnimation(fig, update, frames=num_frames, repeat=False)
-
-    # Save the animation
-    animation.save(os.path.join(RESULTS_FOLDER, save_path), fps=fps, writer='pillow')
-
 def stacked_timeseries_plot(df):
     """
     Generates vertically stacked timeseries plot, with each layer showing one bin of the particle distribution.
@@ -367,35 +341,25 @@ def show_bin_difference(smps_dataframe):
     plt.show()
     ###############################################
 
-def translate_particles_orig(original_bins, original_counts, new_bins):
-    # Calculate the area under the curve for the original counts
-    new_bin_sizes = np.diff(new_bins)
-    area_original = trapz(original_counts, x=original_bins[:-1])
-    # area_original = sum(np.diff(original_bins) * original_counts)
-
-    # Initialize array to store translated counts for new bins
-    translated_counts = np.zeros(len(new_bins) - 1)
-
-    # Translate particle counts to new bins
-    for i in range(len(new_bins) - 1):
-        # Calculate the overlap between the original and new bins
-        overlap = np.maximum(0, np.minimum(original_bins[1:], new_bins[i+1]) - np.maximum(original_bins[:-1], new_bins[i]))
-        overlap_ratio = overlap / new_bin_sizes[i]
-
-        # Allocate particles from each original bin to the new bin
-        translated_counts[i] = np.sum(overlap_ratio * original_counts)
-
-    # Calculate the actual area under the curve for the translated counts
-    area_translated = trapz(translated_counts, x=new_bins[:-1])
-    # area_translated = sum(np.diff(new_bins) * translated_counts)
-
-    # Scale the translated counts to match the total count
-    translated_counts /= (area_original / area_translated)
-    output = pd.DataFrame(data = [translated_counts], columns = ["1a1", "1a2", "1a3", "2a1", "2a2", "2a3"])
-
-    return output
-
 def translate_particles(original_bins, original_counts, new_bins):
+    """
+    Translated particles from one system of bins to another
+
+    Parameters
+    ----------
+    original_bins : List
+        System of bins the data was given in.
+    original_counts : List
+        Number of particles per bin.
+    new_bins : List
+        System of bins to translate to.
+
+    Returns
+    -------
+    output : List
+        Number of particles in the new bin system.
+
+    """
     columns = ['1a1', '1a2', '1a3', '2a1', '2a2', '2a3', '2a4', '2a5', '2a6', '2a7',
            '2b1', '2b2', '2b3', '2b4', '2b5', '2b6', '2b7']
     translated_counts =  np.interp(new_bins, original_bins, original_counts)
@@ -404,6 +368,20 @@ def translate_particles(original_bins, original_counts, new_bins):
     return output
 
 def filter_outliers(df):
+    """
+    Filters outliers based on mean +- 2 sigma
+
+    Parameters
+    ----------
+    df : DataFrame
+        Needs to contain particle counts as given by the SMPS device.
+
+    Returns
+    -------
+    df : DataFrame
+        All outliers have been removed.
+
+    """
     channels = df.filter(regex="^[.0-9]+$")
     
     for col in channels:
@@ -464,8 +442,58 @@ def get_directional_dist(smps_dataframe, weather_dataframe, min_angle = 202.5, m
     
     return directional_dist, environmental_vars
     
+def show_haarrijn_data():
+    """Quick visualisation of the measurement data at Haarrijn"""
+    plt.figure(figsize = (10,6))
+    
+    plt.plot(smps_bins, smps_60m, label = "60m", color = "red")
+    plt.scatter(smps_bins, smps_60m, color = "red")
+    
+    plt.plot(smps_bins, smps_200m, label = "200m", color = "green")
+    plt.scatter(smps_bins, smps_200m, color = "green")
+    
+    plt.plot(smps_bins, smps_220m, label = "220m", color = "magenta")
+    plt.scatter(smps_bins, smps_220m, color = "magenta")
+    
+    plt.plot(smps_bins, smps_320m, label = "320m", color = "blue")
+    plt.scatter(smps_bins, smps_320m, color = "blue")
+    
+    
+    plt.title("Particle distributions at varying distance")
+    plt.xlabel("Diameter (nm)")
+    plt.ylabel("# particles cm$^{-3}$")
+    plt.legend(title = "Distance")
+    
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/Haarrijn_dists.jpg"), dpi = 150)
+    
+def show_haarrijn_init():
+    """Quick visualisation of the 60m measurement data at Haarrijn, translated to SALSA2.0 bins"""
+    salsa_bin_boundaries = define_bin_boundaries()
+    salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
+    
+    salsa_init = np.interp(salsa_bins, smps_bins, smps_60m)
+    bar_widths = np.append(np.diff(salsa_bins), 0)
+    bar_positions = salsa_bins + bar_widths / 2
+
+    plt.figure(figsize = (10,6))
+    plt.title("Translating measurements to model bins")
+
+    plt.plot(smps_bins, smps_60m, label = "Measurement 60m")
+    plt.bar(bar_positions, salsa_init, width = bar_widths, label = "SALSA2.0", color = "orange", alpha = 0.6, edgecolor = 'black')
+
+    plt.xlabel("Diameter (nm)")
+    plt.ylabel("# particles cm$^{-3}$")
+    plt.xlim((0, 400))
+
+    plt.legend()
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/Haarrijn_init.jpg"), dpi = 150)
+
+
 def show_methodology():
     show_bin_difference(rivm_201)
+    show_model_lognormal_flux(sigma = 1.68, center_x = 90, scale = 1)
+    show_haarrijn_data()
+    show_haarrijn_init()
 
 
 if __name__ == "__main__":
@@ -534,35 +562,38 @@ if __name__ == "__main__":
     axd = fig.subplot_mosaic([["main"]])
     plot_data(highway_dist_201, ax = axd["main"], label = "W - SSW", title="Mean size distribution (N201)")
     plot_data(background_dist_201, ax = axd["main"], label = "E-S")
-    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N201_Dist.jpg"), dpi = 150)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N201_Dist.jpg"), bbox_inches = "tight", dpi = 150)
     plt.show()
     
     fig = plt.figure(layout="tight", figsize=(10, 6))
     axd = fig.subplot_mosaic([["main"]])
     plot_data(highway_dist_641, ax = axd["main"], label = "NNW - SSW", title="Mean size distribution (NL10641)")
     plot_data(background_dist_641, ax = axd["main"], label = "NE-SE")
-    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N641_Dist.jpg"), dpi = 150)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/N641_Dist.jpg"), bbox_inches = "tight", dpi = 150)
     plt.show()
     
     # Show the resampling of the nw_sw distribution
     fig = plt.figure(layout="tight", figsize=(16, 6))
-    fig.suptitle("Resampled distributions", x = 0.52)
-    fig.text(0.52, -0.02, "Upper bin boundary (nm)")
+    fig.suptitle("Resampled distributions", x = 0.52, fontsize = 15)
+    fig.text(0.49, -0.02, "Diameter (nm)", fontsize = 15)
 
     axd = fig.subplot_mosaic([["left", "right"]], sharey = True, sharex = True)
     axd["right"].plot(salsa_upper_boundaries, highway_201_resampled.values[0], label = "SALSA2.0")
     axd["right"].plot(highway_dist_201.index.astype(float), highway_dist_201.values, label = "SMPS")
     
-    axd["right"].set_title("N201")
-    axd["right"].legend()
+    axd["right"].set_title("N201", fontsize = 14)
+    axd["right"].tick_params(axis = "both", labelsize = 12)
+    axd["right"].legend(fontsize = 14)
 
     axd["left"].plot(salsa_upper_boundaries, highway_641_resampled.values[0], label = "SALSA2.0")
     axd["left"].plot(highway_dist_641.index.astype(float), highway_dist_641.values, label = "SMPS")
     highway_641_resampled.values[0][1] = 1760
     axd["left"].plot(salsa_upper_boundaries, highway_641_resampled.values[0], label = "Corrected", color = "green")
-    axd["left"].set_ylabel("# particles cm$^{-3}$")
-    axd["left"].set_title("NL10641")
-    axd["left"].legend()
+    axd["left"].set_ylabel("# particles cm$^{-3}$", fontsize = 15)
+    axd["left"].set_title("NL10641", fontsize = 14)
+    axd["left"].tick_params(axis = "both", labelsize = 12)
+    axd["left"].legend(fontsize = 14)
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/resampling_subfig.png"), bbox_inches = "tight", dpi = 150)
     plt.show()
     
     # Plot (immediate) correlations
@@ -575,7 +606,7 @@ if __name__ == "__main__":
     corr_201 = merged_201_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Status").\
            drop(["Wind Dir", "Wind Tx", "Wind Samp", "Wind Chill", "Wind Run",
                  "In  Temp", "Hi Temp", "Low Temp", "In Hum"], axis = 1).query("Status == 'No errors'").\
-           drop(["Status"], axis = 1).reindex(columns = column_order).corr()
+           drop(["Status"], axis = 1).reindex(columns = column_order).rename(columns = {"winddir_deg": "Wind Direction"}).corr()
            
     cmap = sb.diverging_palette(-1, 1, as_cmap = True)
     sb.heatmap(corr_201, cmap = co.cm.balance_r, mask = np.triu(corr_201), center = 0)
@@ -586,7 +617,7 @@ if __name__ == "__main__":
     plt.title("Correlations NL10641")
     corr_641 = merged_641_df.filter(regex = "(?i)^[.0-9]+$|Wind|Temp|Hum|Status").\
            drop([col for col in merged_641_df.columns if "Status " in col], axis = 1).query("Status == 'No errors'").\
-           drop(["Status", "In Hum", "Temp In"], axis = 1).reindex(columns = column_order).corr()
+           drop(["Status", "In Hum", "Temp In"], axis = 1).reindex(columns = column_order).rename(columns = {"winddir_deg": "Wind Direction"}).corr()
            
            
     cmap = sb.diverging_palette(-1, 1, as_cmap = True)

@@ -7,6 +7,7 @@ Created on Fri Mar 22 10:20:12 2024
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from sklearn.metrics import mean_squared_error, r2_score
 from tqdm import tqdm
+from json import loads
 
 import numpy as np
 
@@ -31,27 +32,46 @@ def complementary_color(r, g, b):
    return hsv_to_rgb((hsv[0] + 0.5) % 1, hsv[1], hsv[2])
 
 def print_underlined(text):
+    """print the input argument with a line under it"""
     print('\033[4m' + text + '\033[0m')
-    
-def find_optimum(model_dist, measurement_dist):
-    """Calculates time of optimum rmse, r2 and corr between two distributions"""
-    corrs = []
-    rmses = []
-    rsquareds = []
-    for row in tqdm(range(len(model_dist)-1), desc = "Calculating optimum time..."):
-        rmse = mean_squared_error(model_dist[measurement_dist.columns].iloc[row], measurement_dist.iloc[0])
-        r2 = r2_score(measurement_dist.iloc[0], model_dist[measurement_dist.columns].iloc[row])
-        corr = np.corrcoef(model_dist[measurement_dist.columns].iloc[row], measurement_dist.iloc[0])[0,1]
-        rmses.append(rmse)
-        rsquareds.append(r2)
-        corrs.append(corr)
-
-    print(f"\nMin RMSE of {np.min(rmses):.2e} at time = {np.argmin(rmses)}s")
-    print(f"Max R2 of {np.max(rsquareds):.2f} at time = {np.argmax(rsquareds)}s")
-    print(f"Max correlation of {np.max(corrs):.2f} at time = {np.argmax(corrs)}s")
     
 def lognormal(x, sigma, center_x, scale = 1):
     """Returns **normalized** lognormal curve"""
     prefactor = 1/(np.log(sigma)*np.sqrt(2*np.pi))
     variable = np.exp((-np.log(x*(1/center_x))**2)/(2*np.log(sigma)**2))
     return scale*prefactor*variable
+
+def parse_metadata(metadata):
+    """
+    Parse metadata string to dictionary for easier variable reading
+
+    Parameters
+    ----------
+    metadata : STR
+        String of metadata as outputted by read_model_metadata.
+
+    Returns
+    -------
+    parsed : DICT
+        Dictionary of metadata.
+
+    """
+    parsed = {}
+    for line in metadata.split("\n"):
+        if "=" in line:
+            name, value = line.split("=")
+            name = name.strip()
+            try:
+                parsed[name] = float(value)
+                if name not in ["pt", "pqm1", "pap", "dispersion_rate", "particle_flux"]:
+                    parsed[name] = int(value)
+            except:
+                if name == "particle_flux" :
+                    # This is a disgusting hack to make a string of a list into an actual list
+                    parsed[name] = loads(value)
+                else:
+                    parsed[name] = value.strip()
+        else:
+            break
+            
+    return parsed
