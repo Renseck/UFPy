@@ -2,6 +2,8 @@
 """
 Created on Tue Nov 28 09:12:34 2023
 
+Showcases the workflow.
+
 @author: rens_
 """
 import os
@@ -15,93 +17,93 @@ import HAM_plot as hp
 import measurement_data as md
 import utils
 
+# Some useful data paths and stuff
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")
 HAM_DATA_FOLDER = os.path.join(HAM_BASE_FOLDER, "data")
 HAM_SRC_FOLDER = os.path.join(HAM_BASE_FOLDER, "src\\src_HAM\\")
 RESULTS_FOLDER = "../results"
 MODEL_L0_FOLDER = os.path.join(RESULTS_FOLDER, "Model L0")
+MODEL_PLOT_FOLDER = os.path.join(RESULTS_FOLDER, "Model Figures")
+smps_bins_float = [3.0, 11.5, 15.4, 20.5, 27.4, 36.5, 48.7, 64.9, 86.6, 115.5, 154.0, 205.4, 273.8, 365.2]
 
 
-if __name__ == "__main__":
-    # Start by reading measurement data and filtering/resampling
-    davis_201 = md.read_measurement_data("Davis201", show_comments = False)
-    davis_201["Spec Hum"] = utils.RH2q(davis_201["Out Hum"], davis_201["Bar"]*100, davis_201["Temp Out"] + 273.15)
-    
-    davis_641 = md.read_measurement_data("Davis641", show_comments = False)
-    davis_641 = davis_641.rename(columns = {"Waarden": "Bar",
-					 "Waarden.1": "Rain minute",
-					 "Waarden.2": "Rain day",
-					 "Waarden.3": "Rain pulse",
-					 "Waarden.4": "In Hum",
-					 "Waarden.5": "Out Hum", 
-					 "Waarden.6": "Temp In", 
-					 "Waarden.7": "Temp Out", 
-					 "Waarden.8": "winddir_deg", 
-					 "Waarden.9": "Wind Speed"})
-    davis_641["Spec Hum"] = utils.RH2q(davis_641["Out Hum"], davis_641["Bar"]*100, davis_641["Temp Out"] + 273.15)
-    davis_641["datetime"] = pd.to_datetime(davis_641["Begintijd"], format = "%d-%m-%Y %H:%M")
-    
-    rivm_201 = md.read_measurement_data("SMPS", show_comments = False)
-    rivm_201 = md.smps_filter(rivm_201)
-    
-    rivm_641 = md.read_measurement_data("RIVM", show_comments = False)
-    rivm_641 = md.smps_filter(rivm_641)
-    
-    smps_bins = rivm_201.filter(regex="^[.0-9]+$").columns
-    smps_bins_float = [7.] + [float(binbound) for binbound in smps_bins]
-    
-    salsa_bin_boundaries = hp.define_bin_boundaries()
-    salsa_bins = np.unique(np.concatenate(list(salsa_bin_boundaries.values()), 0)[0:8] * 1e9)
-    salsa_bins_float = [float(binbound) for binbound in salsa_bins]
-    
+#%%
 # =============================================================================
-#     # Merge weather and SMPS data together
-#     merged_df = pd.merge_asof(rivm_201, davis_201, on = "datetime", direction = "nearest")
-#     merged_df = merged_df.drop(["time24"], axis = 1)
-#     merged_df = merged_df.dropna()
+# Input of the model
 # =============================================================================
-    
-    highway_dist_orig, environmental_data = md.get_directional_dist(rivm_641, davis_641, min_angle = 202.5, max_angle = 337.5)
-    background_dist_orig, _ = md.get_directional_dist(rivm_201, davis_201, min_angle = 45, max_angle = 135)
-    highway_dist = md.translate_particles(smps_bins_float, highway_dist_orig.values, salsa_bins_float)
-    background_dist = md.translate_particles(smps_bins_float, background_dist_orig.values, salsa_bins_float)
-    
-    # Read model data
-    experiment_name = "test"
-    # environmental_data = [291, 0.0096788, 100901]
-    ham.write_environmental_data([environmental_data]*6)
-    ham.run_model(experiment_name=experiment_name, recompile=True)
-    
-    bin_boundaries = hp.define_bin_boundaries()
-    bin_names = [f"{key}{i+1}" for key, array in bin_boundaries.items() for i, _ in enumerate(array[:-1])]
-    
-    num, metadata = ham.read_model_data(experiment_name)
-    num5 = pd.read_csv(os.path.join(os.path.join(MODEL_L0_FOLDER, experiment_name), "num_5.dat"), sep = r"\s+")
-    metadata = ham.parse_metadata(metadata)
-    
-    rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry_orig.dat"), sep=r"\s+")
 
-    # rdry has radii which are off by 2 orders of magnitudes, because SALSA works
-    # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
-    rdry = rdry/100
-    
-    dist_to_check = num
-    
-    fig, axes = hp.plot_size_dist(rdry.iloc[1:], highway_dist, rows=[0], ymin=1, xmin = -20e-9, xmax = 400e-9,
-                      exp_name = experiment_name, title = "Size distribution", populations = ["a"],
-                      linestyle = "-.", label = "NL10641 hw", color = "black")
-    
-    fig, axes = hp.plot_size_dist(rdry.iloc[1:], background_dist, rows=[0], ymin=1, xmin = -20e-9, xmax = 400e-9,
-                      exp_name = experiment_name, title = "Size distribution", populations = ["a"],
-                      fig = fig, axes = axes, linestyle = "-.", label = "N201 bg", color = "green")
-    
-    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1], ymin=1, xmin = -20e-9, xmax = 400e-9,
-                      exp_name = experiment_name, title = "Size distribution", populations = ["a"],
-                      fig = fig, axes = axes, linestyle = "dashed", label = "Model")
-    
-    hp.plot_size_dist(rdry, num5*1e-6, rows=[500], ymin=1, ymax = 2e3, xmin = -20e-9, xmax = 400e-9,
-                      exp_name = experiment_name, title = "Size distribution", populations = ["a"],
-                      fig = fig, axes = axes, linestyle = "-", label = "Model")
-    
+# Give the simulation a name
+experiment_name = "Test_1"
 
+# Declare the environmental variables
+temp = 290 # Kelvin
+humi = 0.005 # kg water per kg air, specific humidity
+pressure = 101000 # Pascal
+
+environmental_variables = [temp, humi, pressure] # Order is important
+
+# Particle influx and dispersion
+
+# As it stands, particle_flux is a list with length 9, and dispersion is just a float < 1
+# Let's showcase a lognormal input, which needs to be interpolated to salsa's bins
+x = np.linspace(3, 1000, 10000) 
+lognormal_flux = utils.lognormal(x, sigma = 1.68, center_x = 90, scale = 17e6) # 1e6 for cm^-3 -> m^-3
+
+# Interpolation
+bin_boundaries = hp.define_bin_boundaries()
+salsa_bins = np.unique(np.concatenate(list(bin_boundaries.values()), 0)[0:10] * 1e9)
+
+particle_flux = np.interp(salsa_bins, x, lognormal_flux)
+dispersion_rate = 0.012
+
+#%%
+# =============================================================================
+# Write the input to the data file, and run the model
+# =============================================================================
+
+# These need to be written to every horizontal grid-cell in the system
+# The best way of doing a homogenous system, is just by copying the list n-times, for n grid cells
+# Right now, it's setup for 6, so
+nested_environmental_variables = [environmental_variables]*6
+ham.write_environmental_data(nested_environmental_variables)
+
+ham.write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
+
+# recompile can be set to False if you're positive you've not changed the f90 source code of the model
+ham.run_model(experiment_name=experiment_name, recompile=False)
+
+#%%
+# =============================================================================
+# Read the model data
+# =============================================================================
+
+# The read_model_data() function can discern between grid cell
+# Right now, the model outputs data for cells 1 and 5
+num, metadata = ham.read_model_data(experiment_name, gridcell = 1)
+num5, _ = ham.read_model_data(experiment_name, gridcell = 5)
+
+# Some plotting functions require the rdry file, which contains the immediate bin boundaries.
+# I've not implemented a function for it, because it's a one-liner
+rdry = pd.read_csv(os.path.join(HAM_DATA_FOLDER, "rdry_orig.dat"), sep=r"\s+")
+
+# rdry has radii which are off by 2 orders of magnitudes, because SALSA works
+# with cm, "for some reason". Divide everything by 100 to make it SI compliant.
+rdry = rdry/100
+
+# Parse metadata into more legible form
+metadata = utils.parse_metadata(metadata)
+
+# %%
+# =============================================================================
+# Plotting the data in question
+# =============================================================================
+
+# Num files are always in m^-3, but these plot functions scale them down to cm^-3 automatically
+fig, axes = hp.plot_size_dist(rdry, num5, rows=[100, 600, 1500], ymin=1, xmin = -20, xmax = 400,
+                  exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
+                  label = "Model")
+
+fig, axes = hp.stacked_timeseries_plot(num5, populations = ["a"], ymin = 1, exp_name = experiment_name,
+                                       title = "Size distribution evolution (cell 5)",
+                                       highlights = [600, 1500], highlight_colors = ["green", "red"])

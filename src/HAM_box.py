@@ -581,14 +581,13 @@ if __name__ == '__main__':
     # with cm, "for some reason". Divide everything by 100 to make it SI compliant.
     rdry = rdry/100
 
-    # As a sort of blueprint: First check, by metadata, if a model has already been run. If yes, don't run it again
-    # but return the data that's already present. If no, go ahead and run it, and copy the data into a new folder.
-    fig, axes = hp.plot_size_dist(rdry, num*1e-6, rows=[1], ymin=1, xmin = -20, xmax = 400,
+    # Plotting
+    fig, axes = hp.plot_size_dist(rdry, num, rows=[1], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution", populations = ["a"],
                       linestyle = "dashed", label = "Model")
     
 
-    fig, axes = hp.plot_size_dist(rdry, num5*1e-6, rows=[100, 600, 1500], ymin=1, xmin = -20, xmax = 400,
+    fig, axes = hp.plot_size_dist(rdry, num5, rows=[100, 600, 1500], ymin=1, xmin = -20, xmax = 400,
                       exp_name = experiment_name, title = "Size distribution (cell 5)", populations = ["a"],
                       fig = fig, axes = axes, label = "Model")
     

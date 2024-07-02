@@ -499,7 +499,6 @@ def show_methodology():
 if __name__ == "__main__":
     davis_201 = read_measurement_data("Davis201", show_comments = False)
     davis_201["Spec Hum"] = utils.RH2q(davis_201["Out Hum"], davis_201["Bar"]*100, davis_201["Temp Out"] + 273.15)
-    # plot_windrose(davis_201, "Wind Speed")
     plot_windrose(davis_201, "Wind Speed", title = "Wind speed (N201)", min_angle = 202.5, max_angle = 270)
     
     davis_641 = read_measurement_data("Davis641", show_comments = False)
@@ -515,7 +514,6 @@ if __name__ == "__main__":
 					 "Waarden.9": "Wind Speed"})
     davis_641["Spec Hum"] = utils.RH2q(davis_641["Out Hum"], davis_641["Bar"]*100, davis_641["Temp Out"] + 273.15)
     davis_641["datetime"] = pd.to_datetime(davis_641["Begintijd"], format = "%d-%m-%Y %H:%M")
-    # plot_windrose(davis_641, "Wind Speed")
     plot_windrose(davis_641, "Wind Speed", title = "Wind speed (NL10641)", min_angle = 202.5, max_angle = 337.5)
     
     rivm_201 = read_measurement_data("SMPS", show_comments = False)

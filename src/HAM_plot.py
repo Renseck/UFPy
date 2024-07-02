@@ -72,7 +72,7 @@ def plot_size_dist(
     None.
 
     """
-
+    num = num*1e-6
     # make sure that row_nr is a list-like object
     try:
         iter(rows)
