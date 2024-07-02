@@ -1,5 +1,5 @@
-<h1 align = "center"> ProjectName </h1> <br>
+<h1 align = "center"> UFPy </h1> <br>
 
 ## Documentation
 
-This is where the documentation related to the project goes.
+Don't wanna upload a whole bunch of papers to GitHub. The corresponding master's thesis has all the documentation in it already.
