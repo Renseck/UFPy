@@ -641,7 +641,7 @@ def main():
     it may take quite a long time and approximately 6.5 gigabytes of storage before it's completed.
     """
     utils.print_underlined("[WARNING]")
-    print("You're about to start the function that reproduces all data and figures shown in the thesis.\nThis will take a considerable amount of time, and aroud \033[4m6.5 gigabytes\033[0m of storage. Are you sure you want to continue?\n")
+    print("You're about to start the function that reproduces all data and figures shown in the thesis.\nThis will take a considerable amount of time (approx. 12 minutes on an AMD Ryzen 5 5600X 6-Core Processor 3.70 GHz with plenty of RAM), and aroud \033[4m6.5 gigabytes\033[0m of storage. Are you sure you want to continue?\n")
     
     run = input("Continue? yes/no\n")
     
@@ -649,65 +649,80 @@ def main():
         print("Good luck!")
         # Methods
         
-        # Figure 7
+        utils.print_underlined("Figure 7")
         hp.show_normalised_lognormal_flux(sigma = 1.68, center_x = 90, scale = 1,
                                           title = "Normalized lognormal diesel emissions", label = "", file_addition = "normalized")
         
-        # Figure 9
+        utils.print_underlined("Figure 9")
         show_windroses()
-        # Figure 10
+        
+        utils.print_underlined("Figure 10")
         show_directional_dists()
-        # Figure 11
+        
+        utils.print_underlined("Figure 11")
         show_resampled_dists()
-        # Figure 12
+        
+        utils.print_underlined("Figure 12")
         show_correlations()
-        # Figure 14
+        
+        utils.print_underlined("Figure 14")
         md.show_haarrijn_data()
-        # Figure 15
+        
+        utils.print_underlined("Figure 15")
         md.show_haarrijn_init()
         
         # Results
         
-        # Figure 16
+        utils.print_underlined("Figure 16")
         hp.show_model_lognormal_flux(sigma = 1.68, center_x = 90, scale = 17, label = "", file_addition = "diesel")
         
-        # Figure 17 and 18
+        utils.print_underlined("Figures 17 and 18")
         diesel_run()
-        # Figure 19
+        
+        utils.print_underlined("Figure 19")
         diesel_run_secondaries()
         
-        # Figure 20
+        utils.print_underlined("Figure 20")
         hp.show_model_lognormal_flux(sigma = 1.7, center_x = 20, scale = 17, label = "gasoline", file_addition = "gasoline")
-        # Figure 21 and 22
+        
+        utils.print_underlined("Figures 21 and 22")
         gasoline_run()
         
-        # Figure 23
+        utils.print_underlined("Figure 23")
         hp.show_model_flux(np.array([2.56258763e+06, 2.56258763e+06, 6.00964113e+06, 5.41928197e+06,
                3.88603985e+06, 5.31839479e+05, 2.05616901e+00, 1.07327004e-03,
                9.47644140e-06])*1e-6)
-        # Figure 24 and 25
+        
+        utils.print_underlined("Figures 24 and 25")
         gasoline_run_secondaries()
         
-        # Figure 26
+        utils.print_underlined("Figure 26")
         temp_humi_variation()
-        # Figure 27
+        
+        utils.print_underlined("Figure 27")
         spechum_vs_particle_count()
         
-        # Figure 28
+        utils.print_underlined("Figure 28")
         temp_pressure_variation()
-        # Figure 29
+        
+        utils.print_underlined("Figure 29")
         pressure_vs_particle_count()
         
-        # Figure 30, only first image
+        utils.print_underlined("Figure 30, first image")
         dispersion_variation_2()
-        # Figure 31, only second image
+        
+        utils.print_underlined("Figure 31, second image")
         dispersion_variation_3()
         
         # Appendix
         
-        # Figure 32, only the second image
+        utils.print_underlined("Figure 32, second image")
         rivm_201 = md.read_measurement_data("SMPS", show_comments = False)
         rivm_201 = md.smps_filter(rivm_201)
         md.show_bin_difference(rivm_201)
+        
     else:
         print("Alright, stopping the process.")
+        
+if __name__ == "__main__":
+    main()
