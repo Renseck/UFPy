@@ -19,7 +19,7 @@ Start by running `pip install requirements.txt` after navigating to the `src/` f
 
 ## Usage
 
-How do we use the program? Does it take command line input, does it need files put in specific places?
+See the documentation files in `src/` for some example runs, as well as detailed descriptions of the functions in the py-files.
 
 ## Acknowledgments
 

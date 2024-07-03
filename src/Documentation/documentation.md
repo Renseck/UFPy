@@ -1,7 +1,7 @@
 
 <h1 align = "center"> UFPy </h1> <br>
 
-This file will serve as a complete and thorough documentation of the (main) functions contained in this project, their arguments and how they work together. Examples of how to use most of these will be found in `Reproduce_thesis.py`, located in the `src/` folder. Additional notes are given for each function as needed; the description in the docstring (also seen in each source file) should come a long way.
+This file will serve as a complete and thorough documentation of the (main) functions contained in this project, their arguments and how they work together. Examples of how to use most of these will be found in `Reproduce_thesis.py`, located in the `src/` folder. Additional notes are given for each function as needed; the description in the docstring (also seen in each source file) should come a long way. Example images are put in spoiler tags for the more "relevant" plotting functions, to get a taste for the output they produce.
 
 1. [Running the model](#Runming_the_model)
 2. [Model metadata](#model-metadata)
@@ -410,6 +410,10 @@ def plot_size_dist(
 
     """
 ```
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "size_distribution.png" alt= "Example of size distribution plot"/>
+</details>
 
 ### plot_size_dist_evolution
 
@@ -456,6 +460,11 @@ def plot_size_dist_evolution(
 
     """
 ```
+
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "size_distribution_LES_box.png" alt= "Example of size distribution evolution plot"/>
+</details>
 
 ### stacked_timeseries_plot
 
@@ -507,6 +516,11 @@ def stacked_timeseries_plot(
     """
 ```
 This is the main timeseries plotting function we ended up using, as it neatly shows when stable backgrounds show up.
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "stacked_distribution_timeseries.png" alt= "Example of stacked distribution plot"/>
+</details>
+
 
 ### plot_variation_scatter
 
@@ -581,6 +595,10 @@ def plot_variation_surface(numdict, metadict, exp_name = "", binName = "1a1", ti
     """
 ```
 The preferred variation plotting function. This interpolates data and shows it as a nice 2D surface. It automatically determines what kind of variation was performed, and places the values on the axes accordingly. Do take note that, given the dimensionality of the graph, it can only deal with 2 varied (environmental) variables at a time. Works together with how [read_model_data](#read_model_data) reads data from variation ensembles; the `numdict` and `metadict` resulting from that function can be used directly as arguments for this one. Variation of dispersion and flux input is currently not implemented due to there being too many possibilities. See [plot_dispersion_variation](#plot_dispersion_variation), [plot_flux_peak_variation](#plot_flux_peak_variation), and [plot_flux_scale_variation](#plot_flux_scale_variation) for options. 
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "sensitivity_surface_1a1_1500s.png" alt= "Example of sensitivity surface plot"/>
+</details>
 
 ### plot_dispersion_variation
 
@@ -613,6 +631,11 @@ def plot_dispersion_variation(numdict, metadict, rdry, exp_name = "", binName = 
     """
 ```
 Works together with how [read_model_data](#read_model_data) reads data from variation ensembles; the `numdict` and `metadict` resulting from that function can be used directly as arguments for this one. Make sure that ONLY dispersion was varied; example functions will be available for this. All other variables should be kept constant. Not becauwe it'll break the function, but precisely because this function will plot it as if nothing else was varied, potentially skewing results. 
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Dispersion_sensitivity_1500s.png" alt= "Example of dispersion sensitivity plot"/>
+    <img src = "Dispersion_vs_2a1_1500s.png" alt= "Example of dispersion sensitivity plot"/>
+</details>
 
 ### plot_flux_peak_variation
 
@@ -642,7 +665,12 @@ def plot_flux_peak_variation(numdict, metadict, exp_name = "", binName = "", tim
 
     """
 ```
-Works together with how [read_model_data](#read_model_data) reads data from variation ensembles; the `numdict` and `metadict` resulting from that function can be used directly as arguments for this one. Make sure that ONLY the peak of the (lognormal) input flux was varied; example functions will be available for this. All other variables should be kept constant. Not becauwe it'll break the function, but precisely because this function will plot it as if nothing else was varied, potentially skewing results. 
+Works together with how [read_model_data](#read_model_data) reads data from variation ensembles; the `numdict` and `metadict` resulting from that function can be used directly as arguments for this one. Make sure that ONLY the peak of the (lognormal) input flux was varied; example functions will be available for this. All other variables should be kept constant. Not becauwe it'll break the function, but precisely because this function will plot it as if nothing else was varied, potentially skewing results. Not used in the thesis.
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Distribution_peak_sens_1500.png" alt= "Example of distribution peak sensitivity plot"/>
+</details>
+
 
 ### plot_flux_scale_variation
 
@@ -673,6 +701,10 @@ def plot_flux_scale_variation(numdict, metadict, exp_name = "", binName = "", ti
     """
 ```
 Works together with how [read_model_data](#read_model_data) reads data from variation ensembles; the `numdict` and `metadict` resulting from that function can be used directly as arguments for this one. Make sure that ONLY the scale of the (lognormal) input flux was varied; example functions will be available for this. All other variables should be kept constant. Not becauwe it'll break the function, but precisely because this function will plot it as if nothing else was varied, potentially skewing results. Scale will be calculated internally by the function, and has only been tested on lognormal distributions. 
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Distribution_peak_scale_1500s.png" alt= "Example of distribution scale sensitivity plot"/>
+</details>
 
 ### show_model_lognormal_flux
 ```python
@@ -701,6 +733,10 @@ def show_model_lognormal_flux(sigma = 1.68, center_x = 90, scale = 1, label = ""
     """
 ```
 Corrected for air density. "Realistic" counterpart to [show_normalized_lognormal_flux](#show_normalised_lognormal_flux).
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Model_lognormal_flux_bars_diesel.jpg" alt= "Example of model lognormal flux plot"/>
+</details>
 
 ### show_normalised_lognormal_flux
 ```python
@@ -730,6 +766,10 @@ def show_normalised_lognormal_flux(sigma = 1.68, center_x = 90, scale = 1, title
 
     """
 ```
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Normalized_lgonormal_flux_bars.jpg" alt= "Example of noralized model lognormal flux plot"/>
+</details>
 
 ### show_model_flux
 ```python
@@ -750,3 +790,8 @@ def show_model_flux(particle_flux, file_addition = ""):
 
     """
 ```
+This will plot any distribution you give it as a bar plot, onto the right (default) bin boundaries used by SALSA2.0; no need for anything to do with lognormal distributions.
+<details>
+    <summary>Click to reveal example image.</summary>
+    <img src = "Model_flux_bars_gasoline_secondary.jpg" alt= "Example of model flux plot"/>
+</details>

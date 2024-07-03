@@ -1,6 +1,6 @@
 <h1 align = "center"> UFPy </h1> <br>
 
-See the `documentation.md` file for a complete summary of all functions and their docstrings, with some additional information here and there.
+See the `documentation.md` file in the `Documentation/` folder for a more complete summary of all functions and their docstrings, with some additional information here and there, as well as example figures to see what the plotting functions do.
 
 # Overview
 1. [HAM_box.py](#HAM_box)
