@@ -17,7 +17,7 @@ import pandas as pd
 from matplotlib import colors as mc
 from scipy.interpolate import griddata
 
-from utils import order_of_magnitude, lognormal, parse_metadata
+from utils import lognormal, order_of_magnitude, parse_metadata
 
 HAM_BASE_FOLDER = "../../HAM_box_OpenIFS"
 HAM_INPUT_FOLDER = os.path.join(HAM_BASE_FOLDER, "input")

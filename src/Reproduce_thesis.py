@@ -11,17 +11,17 @@ every function either. Just run the file, it'll take an age and reproduce everyt
 @author: rens_
 """
 import os
+from itertools import product
 
 import cmocean as co
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from itertools import product
 import numpy as np
 import pandas as pd
 import seaborn as sb
 
-import HAM_plot as hp
 import HAM_box as ham
+import HAM_plot as hp
 import measurement_data as md
 import utils
 
@@ -562,7 +562,7 @@ def pressure_vs_particle_count():
              color = "orange", label = f"Regression \n(slope = {coeffs[0]:.2f})")
     plt.ylim(0, 1e4)
 
-    plt.title("Relation between ambient pressure and particle counts (<= 11.5nm)")
+    plt.title("Relation between ambient pressure and particle counts ($\leq 11.5$ nm)")
     plt.xlabel("q ($\\frac{kg}{kg}$)")
     plt.ylabel("# particles cm$^{-3}$")
     plt.legend()
@@ -597,7 +597,7 @@ def spechum_vs_particle_count():
     plt.plot(merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Spec Hum"], merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Spec Hum"]*coeffs[0] + coeffs[1], color = "orange", label = f"Regression \n(slope = {coeffs[0]:.2f})")
     plt.ylim(0, 1e4)
 
-    plt.title("Relation between specific humidity and particle counts (<= 11.5nm)")
+    plt.title("Relation between specific humidity and particle counts ($\leq 11.5$ nm)")
     plt.xlabel("q ($\\frac{kg}{kg}$)")
     plt.ylabel("# particles cm$^{-3}$")
     plt.legend()

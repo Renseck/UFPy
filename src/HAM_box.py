@@ -9,17 +9,17 @@
 
 import json
 import os
-from matplotlib import pyplot as plt
 # from matplotlib import colors as mc
 # from scipy.interpolate import griddata
 import re
-from itertools import product
 import shutil
 import subprocess
+from itertools import product
 
 import netCDF4 as nc
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 import HAM_plot as hp

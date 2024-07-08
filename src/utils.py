@@ -5,11 +5,10 @@ Created on Fri Mar 22 10:20:12 2024
 @author: rens_
 """
 from colorsys import hsv_to_rgb, rgb_to_hsv
-from sklearn.metrics import mean_squared_error, r2_score
-from tqdm import tqdm
 from json import loads
 
 import numpy as np
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 def order_of_magnitude(number):
