@@ -603,6 +603,41 @@ def spechum_vs_particle_count():
     plt.legend()
     plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/spechum_vs_11.5_NL641.jpg"), dpi = 150)
 
+def temp_vs_particle_count():
+    davis_641 = md.read_measurement_data("Davis641", show_comments = False)
+    davis_641 = davis_641.rename(columns = {"Waarden": "Bar",
+    	 "Waarden.1": "Rain minute",
+    	 "Waarden.2": "Rain day",
+    	 "Waarden.3": "Rain pulse",
+    	 "Waarden.4": "In Hum",
+    	 "Waarden.5": "Out Hum", 
+    	 "Waarden.6": "Temp In", 
+    	 "Waarden.7": "Temp Out", 
+    	 "Waarden.8": "winddir_deg", 
+    	 "Waarden.9": "Wind Speed"})
+    davis_641["Spec Hum"] = utils.RH2q(davis_641["Out Hum"], davis_641["Bar"]*100, davis_641["Temp Out"] + 273.15)
+    davis_641["datetime"] = pd.to_datetime(davis_641["Begintijd"], format = "%d-%m-%Y %H:%M")
+
+    rivm_641 = md.read_measurement_data("RIVM", show_comments = False)
+    # rivm_641 = filter_outliers(rivm_641)
+    rivm_641 = md.smps_filter(rivm_641)
+
+    merged_641_df = pd.merge_asof(rivm_641, davis_641, on = "datetime", direction = "nearest")
+    merged_641_df = merged_641_df.dropna()
+
+    coeffs = np.polyfit(merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Temp Out"], merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["11.5"], 1)
+
+    plt.figure(figsize = (10,6))
+    plt.scatter(merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Temp Out"], merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["11.5"], facecolor = 'none', edgecolor = 'blue', label = "Measurement")
+    plt.plot(merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Temp Out"], merged_641_df[(merged_641_df["winddir_deg"] >= 202.5) &(merged_641_df["winddir_deg"] <= 337.5)]["Temp Out"]*coeffs[0] + coeffs[1], color = "orange", label = f"Regression \n(slope = {coeffs[0]:.2f})")
+    plt.ylim(0, 1e4)
+
+    plt.title("Relation between temperature and particle counts ($\leq 11.5$ nm)")
+    plt.xlabel("T ($C^{\\circ}$)")
+    plt.ylabel("# particles cm$^{-3}$")
+    plt.legend()
+    plt.savefig(os.path.join(RESULTS_FOLDER, "Measurement Figures/temp_vs_11.5_NL641.jpg"), dpi = 150)
+
 def dispersion_variation_2():
     exp_name = "Diesel_flux_dispersion_variation_2"
     environmentals = [298, 0.005, 101325]
@@ -703,20 +738,23 @@ def main():
         spechum_vs_particle_count()
         
         utils.print_underlined("Figure 28")
-        temp_pressure_variation()
+        temp_vs_particle_count()()
         
         utils.print_underlined("Figure 29")
+        temp_pressure_variation()
+        
+        utils.print_underlined("Figure 30")
         pressure_vs_particle_count()
         
-        utils.print_underlined("Figure 30, first image")
+        utils.print_underlined("Figure 31, first image")
         dispersion_variation_2()
         
-        utils.print_underlined("Figure 31, second image")
+        utils.print_underlined("Figure 32, second image")
         dispersion_variation_3()
         
         # Appendix
         
-        utils.print_underlined("Figure 32, second image")
+        utils.print_underlined("Figure 33, second image")
         rivm_201 = md.read_measurement_data("SMPS", show_comments = False)
         rivm_201 = md.smps_filter(rivm_201)
         md.show_bin_difference(rivm_201)
