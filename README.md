@@ -1,5 +1,9 @@
 <h1 align = "center"> UFPy </h1> <br>
 
+<p align = "center">
+ <img src = "header.png" alt= "Image header"/>
+</p>
+
 ## Table of Contents
 
 - [Introduction](#introduction)
