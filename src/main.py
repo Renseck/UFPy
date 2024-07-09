@@ -71,7 +71,7 @@ ham.write_environmental_data(nested_environmental_variables)
 ham.write_particle_input_data(particle_flux = particle_flux, dispersion_rate = dispersion_rate)
 
 # recompile can be set to False if you're positive you've not changed the f90 source code of the model
-ham.run_model(experiment_name=experiment_name, recompile=False)
+ham.run_model(experiment_name=experiment_name, recompile=False, verbose=False)
 
 #%%
 # =============================================================================

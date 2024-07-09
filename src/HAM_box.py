@@ -9,6 +9,7 @@
 
 import json
 import os
+from platform import system
 # from matplotlib import colors as mc
 # from scipy.interpolate import griddata
 import re
@@ -69,8 +70,12 @@ def run_model(experiment_name, recompile=True, verbose=True):
         command = f"cd ../.. && cd HAM_box_OpenIFS && {run_command}"
 
     try:
-        result = subprocess.run(["wsl", "bash", "-c", command], check=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if system() == "Windows":
+            result = subprocess.run(["wsl", "bash", "-c", command], check=True,
+                                stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        else:
+            result = subprocess.call(command, check = True,
+                                     stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if verbose:
             print(f"OUTPUT: \n{result.stdout.decode('ascii').strip()}")
             print(f"ERRORS: \n{result.stderr.decode('ascii').strip()}")
