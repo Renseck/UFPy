@@ -17,7 +17,6 @@ import shutil
 import subprocess
 from itertools import product
 
-import netCDF4 as nc
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -74,7 +73,7 @@ def run_model(experiment_name, recompile=True, verbose=True):
             result = subprocess.run(["wsl", "bash", "-c", command], check=True,
                                 stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         else:
-            result = subprocess.call(command, check = True,
+            result = subprocess.call(command,
                                      stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if verbose:
             print(f"OUTPUT: \n{result.stdout.decode('ascii').strip()}")

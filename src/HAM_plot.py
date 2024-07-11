@@ -1210,7 +1210,7 @@ def show_model_flux(particle_flux, file_addition = ""):
 
     Parameters
     ----------
-    particle_flux : List
+    particle_flux : Numpy array
         List of particle fluxes.
     file_addition : String, optional
         Label for the file, for better tracking in file system. The default is "".
