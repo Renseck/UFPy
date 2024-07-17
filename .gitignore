@@ -1,4 +1,4 @@
-data/Measurments
+data/Measurements/*
 data/Backup/HAM_box_inp_200007.01_activ.nc
 data/Backup/lut_kappa.nc
 src/size_distribution_LES_box.png
