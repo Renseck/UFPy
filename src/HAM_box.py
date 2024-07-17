@@ -1,5 +1,5 @@
 # =============================================================================
-# This file functions to analyse the output of the *SMALL* HAM box model, mostly using the salsa2.0 package, 
+# This file functions to run and  analyse the output of the *SMALL* HAM box model, mostly using the salsa2.0 package, 
 # which DOES NOT include atmospheric chemistry and cloud formation.
 # There is no GitHub repository or documentation for this distribution.
 # Investigation of the source code (driver.f90) seems to indicate that number concentration are
